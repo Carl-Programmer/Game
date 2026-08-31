@@ -1,4 +1,4 @@
-<img width="758" height="367" alt="image" src="https://github.com/user-attachments/assets/f5b8a9d4-1bed-452f-9ce4-ee4db99c2589" /># 🥔 POTATO GAME — GAME DESIGN DOCUMENT (v2 — Finalized)
+# 🥔 POTATO GAME — GAME DESIGN DOCUMENT (v2 — Finalized)
 
 **Genre:** Farming / Foraging / Collection / Economy / PvP
 **Platform:** Roblox
