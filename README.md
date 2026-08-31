@@ -157,9 +157,13 @@ Keep the hoe simple in v1: dig speed, luck, detection range, zone access. No mor
 Every harvested/foraged potato receives four **independent** randomized rolls:
 
 **⭐ Rarity** — Common · Uncommon · Rare · Epic · Legendary · Mythic
+<br>
 **⚡ Effect** — Speed, Shield, Lifesteal, Dash, Knockback, Explosion, Ice, etc.
+<br>
 **⚖️ Weight** —  Kg value, e.g. 0.1kg–4kg+ (affects throw arc & knockback)
+<br>
 **✨ Quality** — Rotten · Poor · Normal · Good · Perfect (affects effect potency)
+<br>
 **🧬 Mutation** (optional) — Rainbow, Charged, Crystal, Burnt, Shadow, Sun-Kissed
 
 `The effect pool absorbs mutations`
