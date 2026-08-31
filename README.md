@@ -250,19 +250,25 @@ The merchant is **not permanently available** — he appears periodically as a w
 
 # 16. COOKING
 
-Secondary system: `🥔 Potato → Choose Recipe → 🍳 Cook → 🍟 Food`. Food gives temporary effects (e.g. Speed Potato → Speed Fries).
+Secondary system: `🥔 Potato → Choose Recipe → 🍳 Cook → 🍟 Food`. 
+<br>
+Food gives temporary effects (e.g. Speed Potato → Speed Fries).
 
 ---
 
 # 17. FOOD SLOT
 
-Separate from the PvP potato loadout (Section 20): **1 Food Slot** for a passive temporary buff (e.g. +10% movement speed). This does not consume or interact with the PvP loadout slots — it's a parallel, always-on buff layer.
+Separate from the PvP potato loadout (Section 20): **1 Food Slot** for a passive temporary buff (e.g. +10% movement speed).
+<br>
+This does not consume or interact with the PvP loadout slots — it's a parallel, always-on buff layer.
 
 ---
 
 # 18. RESTAURANT
 
-Keep v1 simple: `Potato → Recipe → Food → Sell`. No NPC customer AI, seating, waiters, or minigames yet.
+Keep v1 simple: `Potato → Recipe → Food → Sell`.
+<br>
+No NPC customer AI, seating, waiters, or minigames yet.
 
 ---
 
