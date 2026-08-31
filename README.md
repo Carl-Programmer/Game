@@ -442,10 +442,15 @@ Inventory, potatoes, Spuds, farm progress, hoe progression
 # 34. DEVELOPMENT ORDER
 
 **Phase 1 — Core:** Inventory → Potato data → Farming → Foraging → Potato generation
+<br>
 **Phase 2 — Combat:** Basic launcher throw → Loadout system → Dash → PvP arena → 1v1 matchmaking → Post-match decay
+<br>
 **Phase 3 — Economy:** Spuds → Selling → Hoe upgrades → Farm upgrades
+<br>
 **Phase 4 — Depth:** More rarities/effects → Quality → Mutations → Collection
+<br>
 **Phase 5 — Secondary:** Cooking → Food effects → Restaurant → Player market → Merchant events
+<br>
 **Phase 6 — Competitive:** Ranked PvP → Seasonal ranks → Additional modes
 
 ---
