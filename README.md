@@ -193,6 +193,7 @@ A potato is never simply "Legendary = better than Rare." Two potatoes of the sam
 The goal is desirable **god-roll combinations**, not a single power ranking.
 
 **Example Player Market UI:**
+<br>
 <img width="647" height="302" alt="Untitled-2026-02-19-1449 excalidraw" src="https://github.com/user-attachments/assets/966fc3d7-a943-4d2b-a6f5-00d7d2d7dda5" />
 
 ---
