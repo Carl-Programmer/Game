@@ -78,6 +78,10 @@ Each server contains:
 
 Recommended server size: **10–15 players**, compact and performance-friendly.
 
+Map Structure Idea:
+<br>
+<img width="759" height="466" alt="image" src="https://github.com/user-attachments/assets/e78a86a2-3a80-4e49-af8a-4a8e53185e0d" />
+
 ---
 
 # 4. PLAYER FARM (BACKUP LOOP)
