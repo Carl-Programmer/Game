@@ -1,8 +1,11 @@
 # 🥔 POTATO GAME — GAME DESIGN DOCUMENT (v2 — Finalized)
 
 **Genre:** Farming / Foraging / Collection / Economy / PvP
+<br>
 **Platform:** Roblox
+<br>
 **Players per Server:** 10-15
+<br>
 **Core Fantasy:** Forage, grow, discover, collect, trade, cook, and battle with unique potatoes.
 
 > **v2 changelog:** Combat redesigned around a multi-potato loadout with infinite throws and post-match decay (replaces single-potato + M1 melee). Foraging (hoe + mob risk) is now the primary potato source; farming is the safe backup. Everything else carries over from v1.
