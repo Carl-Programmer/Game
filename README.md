@@ -78,7 +78,7 @@ Each server contains:
 
 Recommended server size: **10–15 players**, compact and performance-friendly.
 
-Map Structure Idea:
+**Map Structure Idea:**
 <br>
 <img width="759" height="466" alt="image" src="https://github.com/user-attachments/assets/e78a86a2-3a80-4e49-af8a-4a8e53185e0d" />
 
@@ -283,11 +283,11 @@ PvP is one of the game's main features but stays separate from the farming/forag
 * **Losses decay more than wins**, adding stakes to which potatoes you risk in a match.
 * This replaces per-throw ammo consumption, keeping combat fast while preserving an ongoing reason to keep foraging/farming/trading.
 
-Loadout Selection:
+**Loadout Selection:**
 <br>
 <img width="758" height="367" alt="image" src="https://github.com/user-attachments/assets/574ccf35-f713-4e59-98eb-294f67d21ea6" />
 
-PVP HUD:
+**PVP HUD:**
 <br>
 <img width="838" height="318" alt="image" src="https://github.com/user-attachments/assets/d44066c7-ee8f-42ed-bc07-ba585e2ea41d" />
 
