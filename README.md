@@ -280,9 +280,11 @@ PvP is one of the game's main features but stays separate from the farming/forag
 * This replaces per-throw ammo consumption, keeping combat fast while preserving an ongoing reason to keep foraging/farming/trading.
 
 Loadout Selection:
+<br>
 <img width="758" height="367" alt="image" src="https://github.com/user-attachments/assets/574ccf35-f713-4e59-98eb-294f67d21ea6" />
 
 PVP HUD:
+<br>
 <img width="838" height="318" alt="image" src="https://github.com/user-attachments/assets/d44066c7-ee8f-42ed-bc07-ba585e2ea41d" />
 
 ---
@@ -345,6 +347,7 @@ Battle Tokens, titles, kill effects, emotes, cosmetics — never a direct advant
 # 26. COLLECTION SYSTEM
 
 A Potato Collection/Book tracks discovered types and combinations (e.g. "Legendary: 1/10"). Gives players a reason to chase rare potatoes even without a PvP use for them.
+<br>
 
 <img width="868" height="439" alt="image" src="https://github.com/user-attachments/assets/b9c30d82-e6a1-464e-8802-3e8831afde6f" />
 
