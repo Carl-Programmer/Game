@@ -274,13 +274,14 @@ end
 --==================================================
 
 local function cleanSlots()
-	for slot = 1, SLOT_COUNT do
-		local key = hotbarSlots[slot]
-
-		if key and not findRealTool(key) then
-			hotbarSlots[slot] = nil
-		end
-	end
+	-- Do NOT delete slots when a server Tool temporarily
+	-- disappears during inventory synchronization.
+	--
+	-- The server can destroy/recreate Tools, especially
+	-- during respawn or inventory updates.
+	--
+	-- We keep the stable item key so the slot can reconnect
+	-- to the recreated Tool.
 end
 
 --==================================================
@@ -288,12 +289,41 @@ end
 --==================================================
 
 local function addMissingTools(tools)
-	-- First keep every existing assignment.
+	-- If the server is temporarily recreating the Tools,
+	-- don't change the current hotbar layout.
+	if #tools == 0 then
+		return
+	end
+
+	-- Only remove keys when we have a real list of currently
+	-- available Tools. This prevents temporary server
+	-- synchronization from wiping the hotbar.
+	local validKeys = {}
+
 	for _, entry in ipairs(tools) do
-		if isAssigned(entry.Key) then
-			continue
+		validKeys[entry.Key] = true
+	end
+
+	for slot = 1, SLOT_COUNT do
+		local key = hotbarSlots[slot]
+
+		if key and not validKeys[key] then
+			hotbarSlots[slot] = nil
 		end
 	end
+
+	-- Compact valid existing slots toward the left.
+	local compacted = table.create(SLOT_COUNT)
+
+	for slot = 1, SLOT_COUNT do
+		local key = hotbarSlots[slot]
+
+		if key and validKeys[key] then
+			table.insert(compacted, key)
+		end
+	end
+
+	hotbarSlots = compacted
 
 	-- Sort new tools into a predictable order.
 	table.sort(
@@ -310,15 +340,14 @@ local function addMissingTools(tools)
 		end
 	)
 
+	-- Add tools that aren't assigned yet.
 	for _, entry in ipairs(tools) do
-		if isAssigned(entry.Key) then
-			continue
-		end
-
-		for slot = 1, SLOT_COUNT do
-			if hotbarSlots[slot] == nil then
-				hotbarSlots[slot] = entry.Key
-				break
+		if not isAssigned(entry.Key) then
+			for slot = 1, SLOT_COUNT do
+				if hotbarSlots[slot] == nil then
+					hotbarSlots[slot] = entry.Key
+					break
+				end
 			end
 		end
 	end
