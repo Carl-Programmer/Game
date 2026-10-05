@@ -278,12 +278,7 @@ local function cleanSlots()
 		local key = hotbarSlots[slot]
 
 		if key and not findRealTool(key) then
-			-- Leave the key temporarily if the Tool may
-			-- be recreated by the server.
-			--
-			-- We do not immediately erase it. This lets
-			-- a recreated potato/hoe return to the same
-			-- hotbar slot.
+			hotbarSlots[slot] = nil
 		end
 	end
 end
