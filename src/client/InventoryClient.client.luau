@@ -661,9 +661,9 @@ for slot = 1, HOTBAR_COUNT do
 			beginDrag("Hotbar", slotKeys[slot], slot, input)
 		end
 	end)
-	button.MouseButton1Click:Connect(function()
-		if not dragState then useSlot(slot) end
-	end)
+	-- Clicks and drags are both handled by the global InputEnded handler.
+	-- Do not add a second MouseButton1Click equip handler here, or a click
+	-- could equip and immediately unequip the same Tool.
 	slotButtons[slot] = button
 end
 
