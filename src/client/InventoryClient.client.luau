@@ -42,6 +42,9 @@ local COLORS = {
 }
 
 local slotKeys = table.create(HOTBAR_COUNT)
+-- Items deliberately dragged back into the backpack stay there
+-- instead of immediately being auto-assigned to an empty hotbar slot.
+local hiddenFromHotbar = {}
 local slotButtons = {}
 local itemButtons = {}
 local currentTools = {}
@@ -179,7 +182,7 @@ end
 
 local function assignUnslottedTools()
 	for _, entry in ipairs(currentTools) do
-		if not isAssigned(entry.Key) then
+		if not hiddenFromHotbar[entry.Key] and not isAssigned(entry.Key) then
 			for i = 1, HOTBAR_COUNT do
 				if not slotKeys[i] then
 					slotKeys[i] = entry.Key
@@ -295,6 +298,7 @@ local function finishDrag(point)
 	end
 
 	if state.Source == "Inventory" and targetSlot then
+		hiddenFromHotbar[state.Key] = nil
 		local existingSlot
 		for i = 1, HOTBAR_COUNT do
 			if slotKeys[i] == state.Key then existingSlot = i; break end
@@ -308,7 +312,11 @@ local function finishDrag(point)
 		if targetSlot and targetSlot ~= fromSlot then
 			slotKeys[fromSlot], slotKeys[targetSlot] = slotKeys[targetSlot], slotKeys[fromSlot]
 		elseif not targetSlot and inventoryPanel and isInside(inventoryPanel, point) then
+			local keyToStore = slotKeys[fromSlot]
 			slotKeys[fromSlot] = nil
+			if keyToStore then
+				hiddenFromHotbar[keyToStore] = true
+			end
 		end
 	end
 	refreshAll()
