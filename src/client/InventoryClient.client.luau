@@ -16,6 +16,7 @@
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
 local StarterGui = game:GetService("StarterGui")
 
 local player = Players.LocalPlayer
@@ -694,9 +695,16 @@ UserInputService.InputEnded:Connect(function(input)
 	local isMouseRelease = input.UserInputType == Enum.UserInputType.MouseButton1
 	local isTouchRelease = input.UserInputType == Enum.UserInputType.Touch and input == dragState.Input
 	if isMouseRelease or isTouchRelease then
-		local point = UserInputService:GetMouseLocation()
+		local point
 		if input.UserInputType == Enum.UserInputType.Touch then
 			point = Vector2.new(input.Position.X, input.Position.Y)
+		else
+			-- GetMouseLocation includes the top-bar inset. This ScreenGui
+			-- uses IgnoreGuiInset=true, so convert to the same coordinate space
+			-- as AbsolutePosition before checking the drop target.
+			local mousePoint = UserInputService:GetMouseLocation()
+			local inset = GuiService:GetGuiInset()
+			point = Vector2.new(mousePoint.X - inset.X, mousePoint.Y - inset.Y)
 		end
 		finishDrag(point)
 	end
