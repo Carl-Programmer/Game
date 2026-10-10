@@ -45,6 +45,9 @@ local slotKeys = table.create(HOTBAR_COUNT)
 -- Items deliberately dragged back into the backpack stay there
 -- instead of immediately being auto-assigned to an empty hotbar slot.
 local hiddenFromHotbar = {}
+-- Automatically arrange tools once after the first real tools arrive.
+-- After that, leave empty slots empty so player assignments stay in control.
+local hotbarInitialized = false
 local slotButtons = {}
 local itemButtons = {}
 local currentTools = {}
@@ -181,6 +184,13 @@ local function isAssigned(key)
 end
 
 local function assignUnslottedTools()
+	-- Do the initial setup only once, after tools have actually replicated.
+	-- Do not refill empty slots on every refresh: that makes dragging a tool
+	-- back into the backpack appear to randomly replace it with another item.
+	if hotbarInitialized or #currentTools == 0 then
+		return
+	end
+
 	for _, entry in ipairs(currentTools) do
 		if not hiddenFromHotbar[entry.Key] and not isAssigned(entry.Key) then
 			for i = 1, HOTBAR_COUNT do
@@ -191,6 +201,8 @@ local function assignUnslottedTools()
 			end
 		end
 	end
+
+	hotbarInitialized = true
 end
 
 local function isInside(guiObject, point)
