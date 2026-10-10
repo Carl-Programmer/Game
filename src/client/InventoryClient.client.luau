@@ -1,2656 +1,772 @@
 --==================================================
--- POTATIUM SIMPLE INVENTORY V2
+-- POTATIUM DRAGGABLE BACKPACK + HOTBAR
 --
--- Uses:
--- 1. Real Roblox Tools
--- 2. Existing Potato Snapshot
--- 3. Existing Equipment Snapshot
+-- Client UI only. Uses the real server-created Roblox
+-- Tools in Backpack/Character. Does not create or save
+-- inventory items and does not change server services.
 --
--- This means items do NOT need to be in the
--- 10-slot Roblox hotbar to appear here.
+-- Controls:
+--   B       Open/close backpack
+--   1-8     Equip/unequip hotbar slot
+--   Click   Equip an inventory item / use a hotbar slot
+--   Drag    Inventory item -> hotbar slot to assign
+--   Drag    Hotbar slot -> another slot to move/swap
+--   Drag    Hotbar slot -> backpack panel to unassign
 --==================================================
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local backpack = player:WaitForChild("Backpack")
 
---==================================================
--- SETTINGS
---==================================================
-
+local HOTBAR_COUNT = 8
 local OPEN_KEY = Enum.KeyCode.B
 
-local CATEGORY_ALL = "All"
-local CATEGORY_POTATOES = "Potatoes"
-local CATEGORY_HOES = "Hoes"
-local CATEGORY_CRATES = "Crates"
-local CATEGORY_ITEMS = "Items"
-
-local selectedCategory = CATEGORY_ALL
-local favoritesOnly = false
-local searchText = ""
-
---==================================================
--- EXISTING POTATIUM INVENTORY REMOTES
---==================================================
-
-local inventoryRemotes =
-	ReplicatedStorage:WaitForChild(
-		"PotatiumInventoryRemotes",
-		10
-	)
-
-local getPotatoSnapshot =
-	inventoryRemotes
-	and inventoryRemotes:FindFirstChild(
-		"GetPotatoSnapshot"
-	)
-
---==================================================
--- EXISTING POTATIUM EQUIPMENT REMOTES
---==================================================
-
-local crateRemotes =
-	ReplicatedStorage:WaitForChild(
-		"PotatiumCrateRemotes",
-		10
-	)
-
-local getEquipmentSnapshot =
-	crateRemotes
-	and crateRemotes:FindFirstChild(
-		"GetEquipmentSnapshot"
-	)
-
---==================================================
--- OUR FAVORITE REMOTES
---==================================================
-
-local favoriteRemotes =
-	ReplicatedStorage:WaitForChild(
-		"PotatiumInventoryRemotes",
-		10
-	)
-
-local getFavorites =
-	favoriteRemotes
-	and favoriteRemotes:FindFirstChild(
-		"GetFavorites"
-	)
-
-local setFavorite =
-	favoriteRemotes
-	and favoriteRemotes:FindFirstChild(
-		"SetFavorite"
-	)
-
---==================================================
--- FAVORITES
---==================================================
-
-local favorites = {}
-
-if getFavorites then
-
-	local success, data =
-		pcall(function()
-
-			return getFavorites:InvokeServer()
-
-		end)
-
-	if success and type(data) == "table" then
-
-		favorites = data
-
-	end
-
-end
-
---==================================================
--- MIRROR FOLDERS
---
--- These are ONLY display representations.
--- They are NOT placed in Backpack.
---==================================================
-
-local potatoMirror =
-	script:FindFirstChild(
-		"PotatoInventoryMirror"
-	)
-
-if not potatoMirror then
-
-	potatoMirror =
-		Instance.new("Folder")
-
-	potatoMirror.Name =
-		"PotatoInventoryMirror"
-
-	potatoMirror.Parent =
-		script
-
-end
-
-local equipmentMirror =
-	script:FindFirstChild(
-		"EquipmentInventoryMirror"
-	)
-
-if not equipmentMirror then
-
-	equipmentMirror =
-		Instance.new("Folder")
-
-	equipmentMirror.Name =
-		"EquipmentInventoryMirror"
-
-	equipmentMirror.Parent =
-		script
-
-end
-
---==================================================
--- COLORS
---==================================================
-
 local COLORS = {
-
-	Background =
-		Color3.fromRGB(
-			18,
-			20,
-			24
-		),
-
-	Panel =
-		Color3.fromRGB(
-			25,
-			28,
-			34
-		),
-
-	PanelLight =
-		Color3.fromRGB(
-			32,
-			36,
-			43
-		),
-
-	Card =
-		Color3.fromRGB(
-			31,
-			35,
-			41
-		),
-
-	CardHover =
-		Color3.fromRGB(
-			42,
-			47,
-			55
-		),
-
-	Text =
-		Color3.fromRGB(
-			245,
-			245,
-			245
-		),
-
-	SubText =
-		Color3.fromRGB(
-			165,
-			170,
-			180
-		),
-
-	Line =
-		Color3.fromRGB(
-			65,
-			70,
-			80
-		),
-
-	Heart =
-		Color3.fromRGB(
-			235,
-			75,
-			90
-		),
-
-	HeartOff =
-		Color3.fromRGB(
-			120,
-			125,
-			135
-		),
-
+	Background = Color3.fromRGB(16, 21, 30),
+	Panel = Color3.fromRGB(24, 31, 43),
+	Panel2 = Color3.fromRGB(31, 40, 54),
+	Slot = Color3.fromRGB(35, 45, 61),
+	SlotHover = Color3.fromRGB(48, 62, 82),
+	Accent = Color3.fromRGB(80, 158, 255),
+	AccentSoft = Color3.fromRGB(39, 76, 120),
+	Text = Color3.fromRGB(244, 247, 252),
+	Muted = Color3.fromRGB(163, 176, 195),
+	Stroke = Color3.fromRGB(61, 76, 98),
+	Empty = Color3.fromRGB(25, 32, 44),
+	Red = Color3.fromRGB(255, 116, 116),
 }
 
---==================================================
--- GUI
---==================================================
+local slotKeys = table.create(HOTBAR_COUNT)
+local slotButtons = {}
+local itemButtons = {}
+local currentTools = {}
+local selectedCategory = "All"
+local searchText = ""
+local dragState = nil
+local dragGhost = nil
+local gui, inventoryPanel, itemGrid, itemScroll, searchBox, statusLabel, hotbarFrame
 
-local oldGui =
-	playerGui:FindFirstChild(
-		"PotatiumInventoryGui"
-	)
-
-if oldGui then
-	oldGui:Destroy()
+local function round(instance, radius)
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, radius or 10)
+	corner.Parent = instance
+	return corner
 end
 
-local gui =
-	Instance.new("ScreenGui")
-
-gui.Name =
-	"PotatiumInventoryGui"
-
-gui.ResetOnSpawn =
-	false
-
-gui.IgnoreGuiInset =
-	true
-
-gui.DisplayOrder =
-	50
-
-gui.Parent =
-	playerGui
-
---==================================================
--- MAIN
---==================================================
-
-local main =
-	Instance.new("Frame")
-
-main.Name =
-	"Inventory"
-
-main.AnchorPoint =
-	Vector2.new(
-		0.5,
-		0.5
-	)
-
-main.Position =
-	UDim2.fromScale(
-		0.5,
-		0.5
-	)
-
-main.Size =
-	UDim2.fromOffset(
-		850,
-		560
-	)
-
-main.BackgroundColor3 =
-	COLORS.Background
-
-main.BorderSizePixel =
-	0
-
-main.Visible =
-	false
-
-main.Parent =
-	gui
-
-local mainCorner =
-	Instance.new("UICorner")
-
-mainCorner.CornerRadius =
-	UDim.new(
-		0,
-		12
-	)
-
-mainCorner.Parent =
-	main
-
-local mainStroke =
-	Instance.new("UIStroke")
-
-mainStroke.Color =
-	COLORS.Line
-
-mainStroke.Thickness =
-	1
-
-mainStroke.Parent =
-	main
-
---==================================================
--- HEADER
---==================================================
-
-local header =
-	Instance.new("Frame")
-
-header.Size =
-	UDim2.new(
-		1,
-		0,
-		0,
-		65
-	)
-
-header.BackgroundColor3 =
-	COLORS.Panel
-
-header.BorderSizePixel =
-	0
-
-header.Parent =
-	main
-
-local title =
-	Instance.new("TextLabel")
-
-title.BackgroundTransparency =
-	1
-
-title.Position =
-	UDim2.fromOffset(
-		22,
-		10
-	)
-
-title.Size =
-	UDim2.fromOffset(
-		250,
-		28
-	)
-
-title.Text =
-	"INVENTORY"
-
-title.TextColor3 =
-	COLORS.Text
-
-title.TextSize =
-	22
-
-title.Font =
-	Enum.Font.GothamBold
-
-title.TextXAlignment =
-	Enum.TextXAlignment.Left
-
-title.Parent =
-	header
-
-local subtitle =
-	Instance.new("TextLabel")
-
-subtitle.BackgroundTransparency =
-	1
-
-subtitle.Position =
-	UDim2.fromOffset(
-		23,
-		36
-	)
-
-subtitle.Size =
-	UDim2.fromOffset(
-		250,
-		20
-	)
-
-subtitle.Text =
-	"Your Potatium items"
-
-subtitle.TextColor3 =
-	COLORS.SubText
-
-subtitle.TextSize =
-	12
-
-subtitle.Font =
-	Enum.Font.Gotham
-
-subtitle.TextXAlignment =
-	Enum.TextXAlignment.Left
-
-subtitle.Parent =
-	header
-
---==================================================
--- SEARCH
---==================================================
-
-local searchBox =
-	Instance.new("TextBox")
-
-searchBox.Position =
-	UDim2.new(
-		1,
-		-310,
-		0,
-		15
-	)
-
-searchBox.Size =
-	UDim2.fromOffset(
-		220,
-		35
-	)
-
-searchBox.BackgroundColor3 =
-	COLORS.PanelLight
-
-searchBox.BorderSizePixel =
-	0
-
-searchBox.Text =
-	""
-
-searchBox.PlaceholderText =
-	"Search..."
-
-searchBox.PlaceholderColor3 =
-	COLORS.SubText
-
-searchBox.TextColor3 =
-	COLORS.Text
-
-searchBox.TextSize =
-	13
-
-searchBox.Font =
-	Enum.Font.Gotham
-
-searchBox.ClearTextOnFocus =
-	false
-
-searchBox.Parent =
-	header
-
-local searchCorner =
-	Instance.new("UICorner")
-
-searchCorner.CornerRadius =
-	UDim.new(
-		0,
-		8
-	)
-
-searchCorner.Parent =
-	searchBox
-
---==================================================
--- CLOSE
---==================================================
-
-local closeButton =
-	Instance.new("TextButton")
-
-closeButton.Size =
-	UDim2.fromOffset(
-		35,
-		35
-	)
-
-closeButton.Position =
-	UDim2.new(
-		1,
-		-48,
-		0,
-		15
-	)
-
-closeButton.BackgroundTransparency =
-	1
-
-closeButton.Text =
-	"×"
-
-closeButton.TextColor3 =
-	COLORS.Text
-
-closeButton.TextSize =
-	28
-
-closeButton.Font =
-	Enum.Font.Gotham
-
-closeButton.Parent =
-	header
-
---==================================================
--- SIDEBAR
---==================================================
-
-local sidebar =
-	Instance.new("Frame")
-
-sidebar.Position =
-	UDim2.fromOffset(
-		0,
-		65
-	)
-
-sidebar.Size =
-	UDim2.new(
-		0,
-		150,
-		1,
-		-65
-	)
-
-sidebar.BackgroundColor3 =
-	COLORS.Panel
-
-sidebar.BorderSizePixel =
-	0
-
-sidebar.Parent =
-	main
-
-local categories = {
-
-	{
-		Name = CATEGORY_ALL,
-		Text = "All Items",
-	},
-
-	{
-		Name = CATEGORY_POTATOES,
-		Text = "🥔  Potatoes",
-	},
-
-	{
-		Name = CATEGORY_HOES,
-		Text = "⛏  Hoes",
-	},
-
-	{
-		Name = CATEGORY_CRATES,
-		Text = "📦  Crates",
-	},
-
-	{
-		Name = CATEGORY_ITEMS,
-		Text = "🎒  Items",
-	},
-
-}
-
---==================================================
--- CONTENT
---==================================================
-
-local content =
-	Instance.new("Frame")
-
-content.Position =
-	UDim2.fromOffset(
-		150,
-		65
-	)
-
-content.Size =
-	UDim2.new(
-		1,
-		-150,
-		1,
-		-65
-	)
-
-content.BackgroundTransparency =
-	1
-
-content.Parent =
-	main
-
---==================================================
--- CATEGORY TITLE
---==================================================
-
-local categoryTitle =
-	Instance.new("TextLabel")
-
-categoryTitle.BackgroundTransparency =
-	1
-
-categoryTitle.Position =
-	UDim2.fromOffset(
-		20,
-		15
-	)
-
-categoryTitle.Size =
-	UDim2.fromOffset(
-		300,
-		30
-	)
-
-categoryTitle.Text =
-	"ALL"
-
-categoryTitle.TextColor3 =
-	COLORS.Text
-
-categoryTitle.TextSize =
-	18
-
-categoryTitle.Font =
-	Enum.Font.GothamBold
-
-categoryTitle.TextXAlignment =
-	Enum.TextXAlignment.Left
-
-categoryTitle.Parent =
-	content
-
---==================================================
--- FAVORITES FILTER
---==================================================
-
-local favoriteButton =
-	Instance.new("TextButton")
-
-favoriteButton.Size =
-	UDim2.fromOffset(
-		42,
-		36
-	)
-
-favoriteButton.Position =
-	UDim2.new(
-		1,
-		-62,
-		0,
-		12
-	)
-
-favoriteButton.BackgroundColor3 =
-	COLORS.PanelLight
-
-favoriteButton.BorderSizePixel =
-	0
-
-favoriteButton.Text =
-	"♥"
-
-favoriteButton.TextSize =
-	21
-
-favoriteButton.TextColor3 =
-	COLORS.HeartOff
-
-favoriteButton.Font =
-	Enum.Font.GothamBold
-
-favoriteButton.Parent =
-	content
-
-local favCorner =
-	Instance.new("UICorner")
-
-favCorner.CornerRadius =
-	UDim.new(
-		0,
-		8
-	)
-
-favCorner.Parent =
-	favoriteButton
-
---==================================================
--- COUNT
---==================================================
-
-local itemCount =
-	Instance.new("TextLabel")
-
-itemCount.BackgroundTransparency =
-	1
-
-itemCount.Position =
-	UDim2.new(
-		1,
-		-180,
-		0,
-		20
-	)
-
-itemCount.Size =
-	UDim2.fromOffset(
-		100,
-		20
-	)
-
-itemCount.Text =
-	"0 items"
-
-itemCount.TextColor3 =
-	COLORS.SubText
-
-itemCount.TextSize =
-	12
-
-itemCount.Font =
-	Enum.Font.Gotham
-
-itemCount.TextXAlignment =
-	Enum.TextXAlignment.Right
-
-itemCount.Parent =
-	content
-
---==================================================
--- SCROLL
---==================================================
-
-local scroll =
-	Instance.new("ScrollingFrame")
-
-scroll.Position =
-	UDim2.fromOffset(
-		20,
-		58
-	)
-
-scroll.Size =
-	UDim2.new(
-		1,
-		-40,
-		1,
-		-75
-	)
-
-scroll.BackgroundTransparency =
-	1
-
-scroll.BorderSizePixel =
-	0
-
-scroll.ScrollBarThickness =
-	5
-
-scroll.ScrollBarImageColor3 =
-	COLORS.SubText
-
-scroll.AutomaticCanvasSize =
-	Enum.AutomaticSize.Y
-
-scroll.CanvasSize =
-	UDim2.fromOffset(
-		0,
-		0
-	)
-
-scroll.Parent =
-	content
-
-local grid =
-	Instance.new("UIGridLayout")
-
-grid.CellSize =
-	UDim2.fromOffset(
-		150,
-		175
-	)
-
-grid.CellPadding =
-	UDim2.fromOffset(
-		10,
-		10
-	)
-
-grid.SortOrder =
-	Enum.SortOrder.LayoutOrder
-
-grid.Parent =
-	scroll
-
---==================================================
--- HELPERS
---==================================================
-
-local function addCorner(
-	object,
-	radius
-)
-
-	local corner =
-		Instance.new("UICorner")
-
-	corner.CornerRadius =
-		UDim.new(
-			0,
-			radius
-		)
-
-	corner.Parent =
-		object
-
+local function stroke(instance, color, thickness)
+	local s = Instance.new("UIStroke")
+	s.Color = color or COLORS.Stroke
+	s.Thickness = thickness or 1
+	s.Parent = instance
+	return s
 end
 
---==================================================
--- CATEGORY
---==================================================
-
-local function getCategory(tool)
-
-	if not tool:IsA("Tool") then
-		return CATEGORY_ITEMS
-	end
-
-	if tool:GetAttribute(
-		"PotatoId"
-	) ~= nil then
-
-		return CATEGORY_POTATOES
-
-	end
-
-	if tool:GetAttribute(
-		"PotatoInventoryTool"
-	) == true then
-
-		return CATEGORY_POTATOES
-
-	end
-
-	if tool:GetAttribute(
-		"FarmingToolType"
-	) == "Hoe" then
-
-		return CATEGORY_HOES
-
-	end
-
-	if tool:GetAttribute(
-		"HoeId"
-	) ~= nil then
-
-		return CATEGORY_HOES
-
-	end
-
-	if tool:GetAttribute(
-		"CrateTool"
-	) == true then
-
-		return CATEGORY_CRATES
-
-	end
-
-	if tool:GetAttribute(
-		"CrateType"
-	) ~= nil then
-
-		return CATEGORY_CRATES
-
-	end
-
-	local lowerName =
-		string.lower(
-			tool.Name
-		)
-
-	if string.find(
-		lowerName,
-		"potato",
-		1,
-		true
-	) then
-
-		return CATEGORY_POTATOES
-
-	end
-
-	if string.find(
-		lowerName,
-		"hoe",
-		1,
-		true
-	) then
-
-		return CATEGORY_HOES
-
-	end
-
-	if string.find(
-		lowerName,
-		"crate",
-		1,
-		true
-	) then
-
-		return CATEGORY_CRATES
-
-	end
-
-	return CATEGORY_ITEMS
-
+local function getToolType(tool)
+	if not tool or not tool:IsA("Tool") then return "Item" end
+	if tool:GetAttribute("PotatoInventoryTool") == true then return "Potato" end
+	if tool:GetAttribute("FarmingToolType") == "Hoe" or tool:GetAttribute("HoeId") ~= nil then return "Hoe" end
+	if tool:GetAttribute("PotatoBitTool") == true or tool:GetAttribute("FarmingToolType") == "PotatoBits" then return "Seeds" end
+	if tool:GetAttribute("CrateTool") == true or tool:GetAttribute("CrateType") ~= nil then return "Crate" end
+	local name = string.lower(tool.Name)
+	if string.find(name, "potato", 1, true) then return "Potato" end
+	if string.find(name, "hoe", 1, true) then return "Hoe" end
+	if string.find(name, "crate", 1, true) then return "Crate" end
+	return "Item"
 end
 
---==================================================
--- DISPLAY NAME
---==================================================
+local function getToolKey(tool)
+	if not tool or not tool:IsA("Tool") then return nil end
+	local potatoId = tool:GetAttribute("PotatoId")
+	if potatoId ~= nil then return "Potato_" .. tostring(potatoId) end
+	local hoeId = tool:GetAttribute("HoeId")
+	if hoeId ~= nil then return "Hoe_" .. tostring(hoeId) end
+	local crateType = tool:GetAttribute("CrateType")
+	if crateType ~= nil then return "Crate_" .. tostring(crateType) end
+	if tool:GetAttribute("PotatoBitTool") == true then return "Item_PotatoBits" end
+	local itemId = tool:GetAttribute("ItemId")
+	if itemId ~= nil then return "Item_" .. tostring(itemId) end
+	-- Permanent wooden hoe and other singleton tools have no ID.
+	return "Tool_" .. tool.Name
+end
 
-local function getDisplayName(tool)
-
-	local display =
-		tool:GetAttribute(
-			"DisplayName"
-		)
-
-	if display then
-		return tostring(display)
-	end
-
+local function getToolName(tool)
+	local displayName = tool:GetAttribute("DisplayName")
+	if displayName ~= nil then return tostring(displayName) end
 	return tool.Name
-
 end
 
---==================================================
--- FAVORITE KEY
---==================================================
-
-local function getItemKey(tool)
-
-	local potatoId =
-		tool:GetAttribute(
-			"PotatoId"
-		)
-
-	if potatoId ~= nil then
-
-		return "Potato_"
-			.. tostring(potatoId)
-
-	end
-
-	local hoeId =
-		tool:GetAttribute(
-			"HoeId"
-		)
-
-	if hoeId ~= nil then
-
-		return "Hoe_"
-			.. tostring(hoeId)
-
-	end
-
-	local crateType =
-		tool:GetAttribute(
-			"CrateType"
-		)
-
-	if crateType ~= nil then
-
-		return "Crate_"
-			.. tostring(crateType)
-
-	end
-
-	local itemId =
-		tool:GetAttribute(
-			"ItemId"
-		)
-
-	if itemId ~= nil then
-
-		return "Item_"
-			.. tostring(itemId)
-
-	end
-
-	return "Item_"
-		.. tool.Name
-
+local function getToolIcon(tool)
+	local kind = getToolType(tool)
+	if kind == "Potato" then return "🥔" end
+	if kind == "Hoe" then return "⛏" end
+	if kind == "Seeds" then return "🌱" end
+	if kind == "Crate" then return "📦" end
+	return "◆"
 end
 
---==================================================
--- FIND REAL TOOL
---==================================================
-
-local function findRealPotato(
-	potatoId
-)
-
-	for _, container in ipairs({
-
-		backpack,
-
-		player.Character,
-
-	}) do
-
-		if container then
-
-			for _, object in ipairs(
-				container:GetDescendants()
-			) do
-
-				if object:IsA("Tool") then
-
-					if tostring(
-						object:GetAttribute(
-							"PotatoId"
-						)
-					)
-					==
-					tostring(potatoId) then
-
-						return object
-
-					end
-
-				end
-
-			end
-
+local function getToolDetails(tool)
+	local kind = getToolType(tool)
+	if kind == "Potato" then
+		local rarity = tool:GetAttribute("Rarity")
+		local potatoType = tool:GetAttribute("PotatoType")
+		if rarity and potatoType then return tostring(rarity) .. " • " .. tostring(potatoType) end
+		if rarity then return tostring(rarity) end
+		return "Potato"
+	elseif kind == "Hoe" then
+		local durability = tool:GetAttribute("Durability")
+		local maxDurability = tool:GetAttribute("MaxDurability")
+		if durability and maxDurability then
+			return "Durability " .. tostring(durability) .. "/" .. tostring(maxDurability)
 		end
-
+		return "Farming tool"
+	elseif kind == "Seeds" then
+		return "Amount: " .. tostring(tool:GetAttribute("Amount") or player:GetAttribute("PotatoBits") or 0)
+	elseif kind == "Crate" then
+		return "Count: " .. tostring(tool:GetAttribute("CrateCount") or 1)
 	end
-
-	return nil
-
+	return tool.ToolTip ~= "" and tool.ToolTip or kind
 end
 
-local function findRealHoe(
-	hoeId
-)
-
-	for _, container in ipairs({
-
-		backpack,
-
-		player.Character,
-
-	}) do
-
-		if container then
-
-			for _, object in ipairs(
-				container:GetDescendants()
-			) do
-
-				if object:IsA("Tool") then
-
-					if tostring(
-						object:GetAttribute(
-							"HoeId"
-						)
-					)
-					==
-					tostring(hoeId) then
-
-						return object
-
-					end
-
-				end
-
-			end
-
-		end
-
-	end
-
-	return nil
-
-end
-
-local function findRealCrate(
-	crateType
-)
-
-	for _, container in ipairs({
-
-		backpack,
-
-		player.Character,
-
-	}) do
-
-		if container then
-
-			for _, object in ipairs(
-				container:GetDescendants()
-			) do
-
-				if object:IsA("Tool") then
-
-					local objectType =
-						object:GetAttribute(
-							"CrateType"
-						)
-
-					if tostring(
-						objectType
-					)
-					==
-					tostring(
-						crateType
-					) then
-
-						return object
-
-					end
-
-				end
-
-			end
-
-		end
-
-	end
-
-	return nil
-
-end
-
---==================================================
--- RESOLVE REAL TOOL
---==================================================
-
-local function resolveRealTool(
-	tool
-)
-
-	if not tool then
-		return nil
-	end
-
-	local potatoId =
-		tool:GetAttribute(
-			"PotatoId"
-		)
-
-	if potatoId ~= nil then
-
-		return findRealPotato(
-			potatoId
-		)
-
-	end
-
-	local hoeId =
-		tool:GetAttribute(
-			"HoeId"
-		)
-
-	if hoeId ~= nil then
-
-		return findRealHoe(
-			hoeId
-		)
-
-	end
-
-	local crateType =
-		tool:GetAttribute(
-			"CrateType"
-		)
-
-	if crateType ~= nil then
-
-		return findRealCrate(
-			crateType
-		)
-
-	end
-
-	-- Already a real Tool
-
-	if tool:GetAttribute(
-		"InventoryMirror"
-	) ~= true then
-
-		return tool
-
-	end
-
-	return nil
-
-end
-
---==================================================
--- SYNC POTATO SNAPSHOT
---==================================================
-
-local function syncPotatoes()
-
-	for _, child in ipairs(
-		potatoMirror:GetChildren()
-	) do
-
-		child:Destroy()
-
-	end
-
-	if not getPotatoSnapshot then
-
-		warn(
-			"[Inventory] GetPotatoSnapshot not found"
-		)
-
-		return
-
-	end
-
-	local success, records =
-		pcall(function()
-
-			return getPotatoSnapshot:InvokeServer()
-
-		end)
-
-	if not success then
-
-		warn(
-			"[Inventory] Potato snapshot failed:",
-			records
-		)
-
-		return
-
-	end
-
-	if type(records) ~= "table" then
-		return
-	end
-
-	for _, record in ipairs(
-		records
-	) do
-
-		if type(record) == "table"
-			and record.Id ~= nil then
-
-			local tool =
-				Instance.new("Tool")
-
-			local potatoType =
-				tostring(
-					record.PotatoType
-					or
-					"Normal"
-				)
-
-			potatoType =
-				potatoType:gsub(
-					"%s+Potato$",
-					""
-				)
-
-			local displayName =
-				potatoType
-				.. " Potato"
-
-			tool.Name =
-				displayName
-
-			tool.RequiresHandle =
-				false
-
-			tool.CanBeDropped =
-				false
-
-			tool:SetAttribute(
-				"InventoryMirror",
-				true
-			)
-
-			tool:SetAttribute(
-				"PotatoInventoryTool",
-				true
-			)
-
-			tool:SetAttribute(
-				"PotatoId",
-				record.Id
-			)
-
-			tool:SetAttribute(
-				"PotatoType",
-				potatoType
-			)
-
-			tool:SetAttribute(
-				"DisplayName",
-				displayName
-			)
-
-			-- Future KG support
-
-			if record.Weight ~= nil then
-
-				tool:SetAttribute(
-					"Weight",
-					tonumber(
-						record.Weight
-					)
-				)
-
-			elseif record.KG ~= nil then
-
-				tool:SetAttribute(
-					"Weight",
-					tonumber(
-						record.KG
-					)
-				)
-
-			end
-
-			-- Future powerups
-
-			if record.Powerups ~= nil then
-
-				tool:SetAttribute(
-					"Powerups",
-					tostring(
-						record.Powerups
-					)
-				)
-
-			end
-
-			-- Existing data
-
-			if record.Rarity ~= nil then
-
-				tool:SetAttribute(
-					"Rarity",
-					record.Rarity
-				)
-
-			end
-
-			if record.Mutation ~= nil then
-
-				tool:SetAttribute(
-					"Mutation",
-					record.Mutation
-				)
-
-			end
-
-			local key =
-				"Potato_"
-				.. tostring(record.Id)
-
-			if record.Favorite == true then
-
-				favorites[key] = true
-
-			end
-
-			tool.Parent =
-				potatoMirror
-
-		end
-
-	end
-
-end
-
---==================================================
--- SYNC EQUIPMENT SNAPSHOT
---==================================================
-
-local function syncEquipment()
-
-	for _, child in ipairs(
-		equipmentMirror:GetChildren()
-	) do
-
-		child:Destroy()
-
-	end
-
-	if not getEquipmentSnapshot then
-
-		warn(
-			"[Inventory] GetEquipmentSnapshot not found"
-		)
-
-		return
-
-	end
-
-	local success, snapshot =
-		pcall(function()
-
-			return getEquipmentSnapshot:InvokeServer()
-
-		end)
-
-	if not success then
-
-		warn(
-			"[Inventory] Equipment snapshot failed:",
-			snapshot
-		)
-
-		return
-
-	end
-
-	if type(snapshot) ~= "table" then
-		return
-	end
-
-	--==================================================
-	-- CRATES
-	--==================================================
-
-	local crates =
-		type(snapshot.Crates)
-		== "table"
-		and snapshot.Crates
-		or {}
-
-	local woodenCount =
-		math.max(
-			0,
-			math.floor(
-				tonumber(
-					crates.Wooden
-				)
-				or 0
-			)
-		)
-
-	if woodenCount > 0 then
-
-		local tool =
-			Instance.new("Tool")
-
-		if woodenCount > 1 then
-
-			tool.Name =
-				"Wooden Crate x"
-				.. tostring(
-					woodenCount
-				)
-
-		else
-
-			tool.Name =
-				"Wooden Crate"
-
-		end
-
-		tool.RequiresHandle =
-			false
-
-		tool.CanBeDropped =
-			false
-
-		tool:SetAttribute(
-			"InventoryMirror",
-			true
-		)
-
-		tool:SetAttribute(
-			"EquipmentMirror",
-			true
-		)
-
-		tool:SetAttribute(
-			"CrateTool",
-			true
-		)
-
-		tool:SetAttribute(
-			"CrateType",
-			"Wooden"
-		)
-
-		tool:SetAttribute(
-			"CrateCount",
-			woodenCount
-		)
-
-		tool.Parent =
-			equipmentMirror
-
-	end
-
-	--==================================================
-	-- HOES
-	--==================================================
-
-	local hoes =
-		type(snapshot.HoeInventory)
-		== "table"
-		and snapshot.HoeInventory
-		or {}
-
-	for _, record in ipairs(
-		hoes
-	) do
-
-		if type(record) == "table"
-			and record.Id ~= nil then
-
-			local tier =
-				tostring(
-					record.Tier
-					or
-					"Wooden"
-				)
-
-			local tool =
-				Instance.new("Tool")
-
-			tool.Name =
-				tier
-				.. " Hoe"
-
-			tool.RequiresHandle =
-				false
-
-			tool.CanBeDropped =
-				false
-
-			tool:SetAttribute(
-				"InventoryMirror",
-				true
-			)
-
-			tool:SetAttribute(
-				"EquipmentMirror",
-				true
-			)
-
-			tool:SetAttribute(
-				"FarmingToolType",
-				"Hoe"
-			)
-
-			tool:SetAttribute(
-				"HoeId",
-				record.Id
-			)
-
-			tool:SetAttribute(
-				"HoeTier",
-				tier
-			)
-
-			if record.Durability ~= nil then
-
-				tool:SetAttribute(
-					"Durability",
-					tonumber(
-						record.Durability
-					)
-				)
-
-			end
-
-			if record.MaxDurability ~= nil then
-
-				tool:SetAttribute(
-					"MaxDurability",
-					tonumber(
-						record.MaxDurability
-					)
-				)
-
-			end
-
-			local key =
-				"Hoe_"
-				.. tostring(record.Id)
-
-			if record.Favorite == true then
-
-				favorites[key] = true
-
-			end
-
-			tool.Parent =
-				equipmentMirror
-
-		end
-
-	end
-
-end
-
---==================================================
--- GET INVENTORY
---==================================================
-
-local function getAllItems()
-
+local function getContainers()
 	local result = {}
-
-	local seen =
-		{}
-
-	local seenPotatoes =
-		{}
-
-	local seenHoes =
-		{}
-
-	local function add(
-		tool
-	)
-
-		if not tool
-			or not tool:IsA("Tool") then
-
-			return
-
-		end
-
-		if seen[tool] then
-			return
-		end
-
-		-- Don't duplicate a potato if
-		-- both the real Tool and mirror exist.
-
-		local potatoId =
-			tool:GetAttribute(
-				"PotatoId"
-			)
-
-		if potatoId ~= nil then
-
-			local key =
-				tostring(potatoId)
-
-			if seenPotatoes[key] then
-				return
-			end
-
-			seenPotatoes[key] = true
-
-		end
-
-		local hoeId =
-			tool:GetAttribute(
-				"HoeId"
-			)
-
-		if hoeId ~= nil then
-
-			local key =
-				tostring(hoeId)
-
-			if seenHoes[key] then
-				return
-			end
-
-			seenHoes[key] = true
-
-		end
-
-		seen[tool] = true
-
-		table.insert(
-			result,
-			tool
-		)
-
-	end
-
-	--==================================================
-	-- REAL TOOLS
-	--==================================================
-
-	for _, object in ipairs(
-		backpack:GetDescendants()
-	) do
-
-		if object:IsA("Tool") then
-
-			add(object)
-
-		end
-
-	end
-
-	if player.Character then
-
-		for _, object in ipairs(
-			player.Character:GetDescendants()
-		) do
-
-			if object:IsA("Tool") then
-
-				add(object)
-
-			end
-
-		end
-
-	end
-
-	--==================================================
-	-- SNAPSHOT MIRRORS
-	--==================================================
-
-	for _, object in ipairs(
-		potatoMirror:GetChildren()
-	) do
-
-		add(object)
-
-	end
-
-	for _, object in ipairs(
-		equipmentMirror:GetChildren()
-	) do
-
-		add(object)
-
-	end
-
+	local currentBackpack = player:FindFirstChildOfClass("Backpack")
+	if currentBackpack then table.insert(result, currentBackpack) end
+	if player.Character then table.insert(result, player.Character) end
 	return result
-
 end
 
---==================================================
--- REFRESH DECLARATION
---==================================================
-
-local refresh
-
---==================================================
--- CARD
---==================================================
-
-local function createCard(
-	tool
-)
-
-	local category =
-		getCategory(tool)
-
-	-- CATEGORY
-
-	if selectedCategory
-		~= CATEGORY_ALL
-		and category
-		~= selectedCategory then
-
-		return false
-
-	end
-
-	-- SEARCH
-
-	local displayName =
-		getDisplayName(tool)
-
-	if searchText ~= "" then
-
-		if not string.find(
-			string.lower(
-				displayName
-			),
-			string.lower(
-				searchText
-			),
-			1,
-			true
-		) then
-
-			return false
-
-		end
-
-	end
-
-	-- FAVORITE
-
-	local key =
-		getItemKey(tool)
-
-	local isFavorite =
-		favorites[key] == true
-
-	if favoritesOnly
-		and not isFavorite then
-
-		return false
-
-	end
-
-	--==================================================
-	-- CARD
-	--==================================================
-
-	local card =
-		Instance.new("Frame")
-
-	card.Size =
-		UDim2.fromOffset(
-			150,
-			175
-		)
-
-	card.BackgroundColor3 =
-		COLORS.Card
-
-	card.BorderSizePixel =
-		0
-
-	card.Parent =
-		scroll
-
-	addCorner(
-		card,
-		10
-	)
-
-	--==================================================
-	-- ICON
-	--==================================================
-
-	local icon =
-		Instance.new("TextLabel")
-
-	icon.BackgroundTransparency =
-		1
-
-	icon.Position =
-		UDim2.fromOffset(
-			10,
-			10
-		)
-
-	icon.Size =
-		UDim2.new(
-			1,
-			-20,
-			0,
-			75
-		)
-
-	icon.TextSize =
-		45
-
-	icon.Font =
-		Enum.Font.GothamBold
-
-	icon.TextColor3 =
-		COLORS.Text
-
-	if category
-		== CATEGORY_POTATOES then
-
-		icon.Text =
-			"🥔"
-
-	elseif category
-		== CATEGORY_HOES then
-
-		icon.Text =
-			"⛏"
-
-	elseif category
-		== CATEGORY_CRATES then
-
-		icon.Text =
-			"📦"
-
-	else
-
-		icon.Text =
-			"◆"
-
-	end
-
-	icon.Parent =
-		card
-
-	--==================================================
-	-- HEART
-	--==================================================
-
-	local heart =
-		Instance.new("TextButton")
-
-	heart.Size =
-		UDim2.fromOffset(
-			32,
-			32
-		)
-
-	heart.Position =
-		UDim2.new(
-			1,
-			-38,
-			0,
-			6
-		)
-
-	heart.BackgroundTransparency =
-		1
-
-	heart.Text =
-		isFavorite
-		and "♥"
-		or "♡"
-
-	heart.TextColor3 =
-		isFavorite
-		and COLORS.Heart
-		or COLORS.HeartOff
-
-	heart.TextSize =
-		22
-
-	heart.Font =
-		Enum.Font.GothamBold
-
-	heart.ZIndex =
-		10
-
-	heart.Parent =
-		card
-
-	heart.MouseButton1Click:Connect(
-		function()
-
-			local newValue =
-				not (
-					favorites[key]
-					== true
-				)
-
-			favorites[key] =
-				newValue
-
-			if setFavorite then
-
-				setFavorite:FireServer(
-					key,
-					newValue
-				)
-
-			end
-
-			heart.Text =
-				newValue
-				and "♥"
-				or "♡"
-
-			heart.TextColor3 =
-				newValue
-				and COLORS.Heart
-				or COLORS.HeartOff
-
-			if favoritesOnly then
-
-				task.defer(
-					refresh
-				)
-
-			end
-
-		end
-	)
-
-	--==================================================
-	-- NAME
-	--==================================================
-
-	local nameLabel =
-		Instance.new("TextLabel")
-
-	nameLabel.BackgroundTransparency =
-		1
-
-	nameLabel.Position =
-		UDim2.fromOffset(
-			10,
-			90
-		)
-
-	nameLabel.Size =
-		UDim2.new(
-			1,
-			-20,
-			0,
-			25
-		)
-
-	nameLabel.Text =
-		displayName
-
-	nameLabel.TextColor3 =
-		COLORS.Text
-
-	nameLabel.TextSize =
-		14
-
-	nameLabel.Font =
-		Enum.Font.GothamBold
-
-	nameLabel.TextTruncate =
-		Enum.TextTruncate.AtEnd
-
-	nameLabel.Parent =
-		card
-
-	--==================================================
-	-- DETAILS
-	--==================================================
-
-	local details =
-		Instance.new("TextLabel")
-
-	details.BackgroundTransparency =
-		1
-
-	details.Position =
-		UDim2.fromOffset(
-			10,
-			118
-		)
-
-	details.Size =
-		UDim2.new(
-			1,
-			-20,
-			0,
-			45
-		)
-
-	details.TextColor3 =
-		COLORS.SubText
-
-	details.TextSize =
-		11
-
-	details.Font =
-		Enum.Font.Gotham
-
-	details.TextWrapped =
-		true
-
-	details.TextXAlignment =
-		Enum.TextXAlignment.Left
-
-	details.TextYAlignment =
-		Enum.TextYAlignment.Top
-
-	local detailText = ""
-
-	--==================================================
-	-- POTATO DETAILS
-	--==================================================
-
-	if category
-		== CATEGORY_POTATOES then
-
-		local weight =
-			tool:GetAttribute(
-				"Weight"
-			)
-
-		local powerups =
-			tool:GetAttribute(
-				"Powerups"
-			)
-
-		if weight ~= nil then
-
-			detailText =
-				string.format(
-					"%.2f KG",
-					tonumber(weight)
-					or 0
-				)
-
-		end
-
-		if powerups
-			and tostring(powerups)
-				~= "" then
-
-			if detailText
-				~= "" then
-
-				detailText =
-					detailText
-					.. "\n"
-
-			end
-
-			detailText =
-				detailText
-				.. "✦ "
-				.. tostring(powerups)
-
-		end
-
-	end
-
-	--==================================================
-	-- HOE DETAILS
-	--==================================================
-
-	if category
-		== CATEGORY_HOES then
-
-		local durability =
-			tool:GetAttribute(
-				"Durability"
-			)
-
-		local maxDurability =
-			tool:GetAttribute(
-				"MaxDurability"
-			)
-
-		if durability ~= nil
-			and maxDurability ~= nil then
-
-			detailText =
-				string.format(
-					"Durability: %d / %d",
-					tonumber(
-						durability
-					) or 0,
-					tonumber(
-						maxDurability
-					) or 0
-				)
-
-		end
-
-	end
-
-	--==================================================
-	-- CRATE DETAILS
-	--==================================================
-
-	if category
-		== CATEGORY_CRATES then
-
-		local count =
-			tool:GetAttribute(
-				"CrateCount"
-			)
-
-		if count then
-
-			detailText =
-				"x"
-				.. tostring(count)
-
-		end
-
-	end
-
-	details.Text =
-		detailText
-
-	details.Parent =
-		card
-
-	--==================================================
-	-- CARD CLICK
-	--==================================================
-
-	local clickButton =
-		Instance.new("TextButton")
-
-	clickButton.BackgroundTransparency =
-		1
-
-	clickButton.Size =
-		UDim2.fromScale(
-			1,
-			1
-		)
-
-	clickButton.Text =
-		""
-
-	clickButton.ZIndex =
-		1
-
-	clickButton.Parent =
-		card
-
-	icon.ZIndex =
-		2
-
-	nameLabel.ZIndex =
-		2
-
-	details.ZIndex =
-		2
-
-	clickButton.MouseButton1Click:Connect(
-		function()
-
-			local realTool =
-				resolveRealTool(
-					tool
-				)
-
-			if not realTool then
-
-				-- Saved item exists but
-				-- its physical Tool hasn't
-				-- replicated yet.
-
-				warn(
-					"[Inventory] Physical Tool not available yet:",
-					tool.Name
-				)
-
-				return
-
-			end
-
-			local character =
-				player.Character
-
-			if not character then
-				return
-			end
-
-			local humanoid =
-				character:FindFirstChildOfClass(
-					"Humanoid"
-				)
-
-			if not humanoid then
-				return
-			end
-
-			if realTool.Parent
-				== character then
-
-				humanoid:UnequipTools()
-
-			else
-
-				humanoid:EquipTool(
-					realTool
-				)
-
-			end
-
-		end
-	)
-
-	--==================================================
-	-- HOVER
-	--==================================================
-
-	card.MouseEnter:Connect(
-		function()
-
-			card.BackgroundColor3 =
-				COLORS.CardHover
-
-		end
-	)
-
-	card.MouseLeave:Connect(
-		function()
-
-			card.BackgroundColor3 =
-				COLORS.Card
-
-		end
-	)
-
-	return true
-
-end
-
---==================================================
--- REFRESH
---==================================================
-
-refresh = function()
-
-	-- VERY IMPORTANT:
-	-- Get latest saved inventory before building cards.
-
-	syncPotatoes()
-
-	syncEquipment()
-
-	-- Clear cards
-
-	for _, child in ipairs(
-		scroll:GetChildren()
-	) do
-
-		if child:IsA("Frame") then
-
-			child:Destroy()
-
-		end
-
-	end
-
-	local count = 0
-
-	for _, tool in ipairs(
-		getAllItems()
-	) do
-
-		if createCard(tool) then
-
-			count += 1
-
-		end
-
-	end
-
-	-- TITLE
-
-	if favoritesOnly then
-
-		categoryTitle.Text =
-			"FAVORITES"
-
-	else
-
-		categoryTitle.Text =
-			string.upper(
-				selectedCategory
-			)
-
-	end
-
-	itemCount.Text =
-		tostring(count)
-		.. (
-			count == 1
-			and " item"
-			or " items"
-		)
-
-	-- FAVORITE FILTER
-
-	if favoritesOnly then
-
-		favoriteButton.TextColor3 =
-			COLORS.Heart
-
-		favoriteButton.BackgroundColor3 =
-			Color3.fromRGB(
-				55,
-				35,
-				40
-			)
-
-	else
-
-		favoriteButton.TextColor3 =
-			COLORS.HeartOff
-
-		favoriteButton.BackgroundColor3 =
-			COLORS.PanelLight
-
-	end
-
-end
-
---==================================================
--- CATEGORY BUTTONS
---==================================================
-
-for index, data in ipairs(
-	categories
-) do
-
-	local button =
-		Instance.new("TextButton")
-
-	button.Size =
-		UDim2.new(
-			1,
-			-20,
-			0,
-			42
-		)
-
-	button.Position =
-		UDim2.fromOffset(
-			10,
-			10
-			+ (
-				(index - 1)
-				* 48
-			)
-		)
-
-	button.BackgroundColor3 =
-		COLORS.Panel
-
-	button.BorderSizePixel =
-		0
-
-	button.Text =
-		data.Text
-
-	button.TextColor3 =
-		COLORS.SubText
-
-	button.TextSize =
-		13
-
-	button.Font =
-		Enum.Font.GothamMedium
-
-	button.TextXAlignment =
-		Enum.TextXAlignment.Left
-
-	button.Parent =
-		sidebar
-
-	addCorner(
-		button,
-		7
-	)
-
-	local padding =
-		Instance.new(
-			"UIPadding"
-		)
-
-	padding.PaddingLeft =
-		UDim.new(
-			0,
-			12
-		)
-
-	padding.Parent =
-		button
-
-	button.MouseButton1Click:Connect(
-		function()
-
-			selectedCategory =
-				data.Name
-
-			favoritesOnly =
-				false
-
-			refresh()
-
-		end
-	)
-
-end
-
---==================================================
--- FAVORITES FILTER
---==================================================
-
-favoriteButton.MouseButton1Click:Connect(
-	function()
-
-		favoritesOnly =
-			not favoritesOnly
-
-		refresh()
-
-	end
-)
-
---==================================================
--- SEARCH
---==================================================
-
-searchBox:GetPropertyChangedSignal(
-	"Text"
-):Connect(
-	function()
-
-		searchText =
-			searchBox.Text
-
-		refresh()
-
-	end
-)
-
---==================================================
--- CLOSE
---==================================================
-
-closeButton.MouseButton1Click:Connect(
-	function()
-
-		main.Visible =
-			false
-
-	end
-)
-
---==================================================
--- B TOGGLE
---==================================================
-
-UserInputService.InputBegan:Connect(
-	function(
-		input,
-		processed
-	)
-
-		if processed then
-			return
-		end
-
-		if input.KeyCode
-			== OPEN_KEY then
-
-			main.Visible =
-				not main.Visible
-
-			if main.Visible then
-
-				refresh()
-
-			end
-
-		end
-
-	end
-)
-
---==================================================
--- BACKPACK CHANGES
---==================================================
-
-backpack.ChildAdded:Connect(
-	function()
-
-		if main.Visible then
-
-			task.delay(
-				0.15,
-				refresh
-			)
-
-		end
-
-	end
-)
-
-backpack.ChildRemoved:Connect(
-	function()
-
-		if main.Visible then
-
-			task.delay(
-				0.15,
-				refresh
-			)
-
-		end
-
-	end
-)
-
---==================================================
--- CHARACTER
---==================================================
-
-player.CharacterAdded:Connect(
-	function(character)
-
-		character.ChildAdded:Connect(
-			function()
-
-				if main.Visible then
-
-					task.delay(
-						0.15,
-						refresh
-					)
-
+local function scanTools()
+	local found, seen = {}, {}
+	for _, container in ipairs(getContainers()) do
+		for _, object in ipairs(container:GetChildren()) do
+			if object:IsA("Tool") and object:GetAttribute("InventoryMirror") ~= true then
+				local key = getToolKey(object)
+				if key and not seen[key] then
+					seen[key] = true
+					table.insert(found, {Key = key, Tool = object, Type = getToolType(object)})
 				end
-
 			end
-		)
-
-		character.ChildRemoved:Connect(
-			function()
-
-				if main.Visible then
-
-					task.delay(
-						0.15,
-						refresh
-					)
-
-				end
-
-			end
-		)
-
+		end
 	end
-)
+	table.sort(found, function(a, b)
+		local order = {Hoe = 1, Seeds = 2, Crate = 3, Item = 4, Potato = 5}
+		local pa, pb = order[a.Type] or 6, order[b.Type] or 6
+		if pa ~= pb then return pa < pb end
+		return getToolName(a.Tool) < getToolName(b.Tool)
+	end)
+	return found
+end
+
+local function findTool(key)
+	if not key then return nil end
+	for _, entry in ipairs(currentTools) do
+		if entry.Key == key then return entry.Tool end
+	end
+	return nil
+end
+
+local function isAssigned(key)
+	for i = 1, HOTBAR_COUNT do
+		if slotKeys[i] == key then return true end
+	end
+	return false
+end
+
+local function assignUnslottedTools()
+	for _, entry in ipairs(currentTools) do
+		if not isAssigned(entry.Key) then
+			for i = 1, HOTBAR_COUNT do
+				if not slotKeys[i] then
+					slotKeys[i] = entry.Key
+					break
+				end
+			end
+		end
+	end
+end
+
+local function isInside(guiObject, point)
+	if not guiObject or not guiObject.Visible then return false end
+	local pos, size = guiObject.AbsolutePosition, guiObject.AbsoluteSize
+	return point.X >= pos.X and point.X <= pos.X + size.X
+		and point.Y >= pos.Y and point.Y <= pos.Y + size.Y
+end
+
+local function equippedTool()
+	local character = player.Character
+	if not character then return nil end
+	for _, object in ipairs(character:GetChildren()) do
+		if object:IsA("Tool") then return object end
+	end
+	return nil
+end
+
+local function equipTool(tool)
+	if not tool then return end
+	local character = player.Character
+	if not character then return end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+	if tool.Parent == character then
+		humanoid:UnequipTools()
+	else
+		humanoid:EquipTool(tool)
+	end
+end
+
+local function useSlot(slot)
+	local tool = findTool(slotKeys[slot])
+	if tool then equipTool(tool) end
+	task.defer(function()
+		if gui then
+			for i = 1, HOTBAR_COUNT do
+				local button = slotButtons[i]
+				local equipped = equippedTool()
+				local active = equipped ~= nil and getToolKey(equipped) == slotKeys[i]
+				if button then
+					button.BackgroundColor3 = active and COLORS.AccentSoft or (slotKeys[i] and COLORS.Slot or COLORS.Empty)
+					local st = button:FindFirstChild("SlotStroke")
+					if st then st.Color = active and COLORS.Accent or COLORS.Stroke end
+				end
+			end
+		end
+	end)
+end
+
+local function beginDrag(source, key, sourceSlot, input)
+	dragState = {
+		Source = source,
+		Key = key,
+		SourceSlot = sourceSlot,
+		Start = Vector2.new(input.Position.X, input.Position.Y),
+		Input = input,
+		Moved = false,
+	}
+end
+
+local function makeDragGhost(entry)
+	if dragGhost then dragGhost:Destroy() end
+	dragGhost = Instance.new("TextLabel")
+	dragGhost.Name = "DragGhost"
+	dragGhost.Size = UDim2.fromOffset(142, 48)
+	dragGhost.BackgroundColor3 = COLORS.Panel2
+	dragGhost.BackgroundTransparency = 0.05
+	dragGhost.TextColor3 = COLORS.Text
+	dragGhost.TextSize = 13
+	dragGhost.Font = Enum.Font.GothamSemibold
+	dragGhost.Text = getToolIcon(entry.Tool) .. "  " .. getToolName(entry.Tool)
+	dragGhost.ZIndex = 100
+	dragGhost.Parent = gui
+	round(dragGhost, 9)
+	stroke(dragGhost, COLORS.Accent, 2)
+end
+
+local function finishDrag(point)
+	if not dragState then return end
+	local state = dragState
+	dragState = nil
+	if dragGhost then dragGhost:Destroy(); dragGhost = nil end
+	if not state.Moved then
+		if state.Source == "Inventory" then
+			local tool = findTool(state.Key)
+			if tool then
+				if not isAssigned(state.Key) then
+					for i = 1, HOTBAR_COUNT do
+						if not slotKeys[i] then slotKeys[i] = state.Key; break end
+					end
+				end
+				equipTool(tool)
+			end
+		elseif state.Source == "Hotbar" and state.SourceSlot then
+			useSlot(state.SourceSlot)
+		end
+		refreshAll()
+		return
+	end
+
+	local targetSlot
+	for i = 1, HOTBAR_COUNT do
+		if isInside(slotButtons[i], point) then targetSlot = i; break end
+	end
+
+	if state.Source == "Inventory" and targetSlot then
+		local existingSlot
+		for i = 1, HOTBAR_COUNT do
+			if slotKeys[i] == state.Key then existingSlot = i; break end
+		end
+		if existingSlot and existingSlot ~= targetSlot then
+			slotKeys[existingSlot] = slotKeys[targetSlot]
+		end
+		slotKeys[targetSlot] = state.Key
+	elseif state.Source == "Hotbar" and state.SourceSlot then
+		local fromSlot = state.SourceSlot
+		if targetSlot and targetSlot ~= fromSlot then
+			slotKeys[fromSlot], slotKeys[targetSlot] = slotKeys[targetSlot], slotKeys[fromSlot]
+		elseif not targetSlot and inventoryPanel and isInside(inventoryPanel, point) then
+			slotKeys[fromSlot] = nil
+		end
+	end
+	refreshAll()
+end
+
+local function makeTextButton(parent, name, text, size, position, color)
+	local button = Instance.new("TextButton")
+	button.Name = name
+	button.Size = size
+	button.Position = position
+	button.BackgroundColor3 = color or COLORS.Panel2
+	button.BorderSizePixel = 0
+	button.Text = text
+	button.TextColor3 = COLORS.Text
+	button.TextSize = 13
+	button.Font = Enum.Font.GothamSemibold
+	button.AutoButtonColor = true
+	button.Parent = parent
+	round(button, 8)
+	return button
+end
+
+local function clearItems()
+	for _, child in ipairs(itemScroll:GetChildren()) do
+		if child:IsA("TextButton") or child:IsA("Frame") then child:Destroy() end
+	end
+	table.clear(itemButtons)
+end
+
+local function makeItemCard(entry, index)
+	local tool = entry.Tool
+	local card = Instance.new("TextButton")
+	card.Name = "Item_" .. tostring(index)
+	card.Size = UDim2.fromOffset(126, 112)
+	card.BackgroundColor3 = COLORS.Slot
+	card.BorderSizePixel = 0
+	card.AutoButtonColor = false
+	card.Text = ""
+	card.Parent = itemScroll
+	round(card, 10)
+	stroke(card, COLORS.Stroke, 1)
+
+	local icon = Instance.new("TextLabel")
+	icon.BackgroundTransparency = 1
+	icon.Position = UDim2.fromOffset(8, 7)
+	icon.Size = UDim2.new(1, -16, 0, 45)
+	icon.Text = getToolIcon(tool)
+	icon.TextSize = 30
+	icon.Font = Enum.Font.GothamBold
+	icon.Parent = card
+
+	local name = Instance.new("TextLabel")
+	name.BackgroundTransparency = 1
+	name.Position = UDim2.fromOffset(5, 53)
+	name.Size = UDim2.new(1, -10, 0, 27)
+	name.Text = getToolName(tool)
+	name.TextColor3 = COLORS.Text
+	name.TextSize = 11
+	name.Font = Enum.Font.GothamSemibold
+	name.TextWrapped = true
+	name.TextTruncate = Enum.TextTruncate.AtEnd
+	name.Parent = card
+
+	local detail = Instance.new("TextLabel")
+	detail.BackgroundTransparency = 1
+	detail.Position = UDim2.fromOffset(4, 83)
+	detail.Size = UDim2.new(1, -8, 0, 20)
+	detail.Text = getToolDetails(tool)
+	detail.TextColor3 = COLORS.Muted
+	detail.TextSize = 9
+	detail.Font = Enum.Font.Gotham
+	detail.TextTruncate = Enum.TextTruncate.AtEnd
+	detail.Parent = card
+
+	card.MouseEnter:Connect(function() if not dragState then card.BackgroundColor3 = COLORS.SlotHover end end)
+	card.MouseLeave:Connect(function() card.BackgroundColor3 = COLORS.Slot end)
+	card.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			beginDrag("Inventory", entry.Key, nil, input)
+		end
+	end)
+	card.MouseButton1Click:Connect(function()
+		if not dragState then return end
+		-- The global InputEnded handler handles both click and drag.
+	end)
+	table.insert(itemButtons, card)
+end
+
+local function renderItems()
+	clearItems()
+	local shown = 0
+	local filtered = {}
+	for _, entry in ipairs(currentTools) do
+		local category = selectedCategory
+		local matchesCategory = category == "All" or
+			(category == "Potatoes" and entry.Type == "Potato") or
+			(category == "Hoes" and entry.Type == "Hoe") or
+			(category == "Seeds" and entry.Type == "Seeds") or
+			(category == "Crates" and entry.Type == "Crate") or
+			(category == "Items" and entry.Type == "Item")
+		local name = string.lower(getToolName(entry.Tool))
+		if matchesCategory and (searchText == "" or string.find(name, string.lower(searchText), 1, true)) then
+			table.insert(filtered, entry)
+		end
+	end
+	for index, entry in ipairs(filtered) do
+		shown += 1
+		makeItemCard(entry, index)
+	end
+	statusLabel.Text = tostring(shown) .. " item" .. (shown == 1 and "" or "s") .. "  •  Drag items to the hotbar"
+end
+
+local function renderHotbar()
+	for slot = 1, HOTBAR_COUNT do
+		local button = slotButtons[slot]
+		if button then
+			local key = slotKeys[slot]
+			local tool = findTool(key)
+			local icon = button:FindFirstChild("Icon")
+			local name = button:FindFirstChild("Name")
+			local number = button:FindFirstChild("Number")
+			if number then number.Text = tostring(slot) end
+			if icon then icon.Text = tool and getToolIcon(tool) or "" end
+			if name then name.Text = tool and getToolName(tool) or (key and "..." or "Empty") end
+			local active = tool ~= nil and equippedTool() == tool
+			button.BackgroundColor3 = active and COLORS.AccentSoft or (key and COLORS.Slot or COLORS.Empty)
+			local st = button:FindFirstChild("SlotStroke")
+			if st then st.Color = active and COLORS.Accent or COLORS.Stroke end
+		end
+	end
+end
+
+function refreshAll()
+	if not gui then return end
+	currentTools = scanTools()
+	assignUnslottedTools()
+	renderHotbar()
+	if inventoryPanel.Visible then renderItems() end
+end
 
 --==================================================
--- INITIAL
+-- BUILD GUI
 --==================================================
 
-refresh()
+local oldGui = playerGui:FindFirstChild("PotatiumInventoryGui")
+if oldGui then oldGui:Destroy() end
+local oldHotbar = playerGui:FindFirstChild("PotatiumCustomHotbar")
+if oldHotbar then oldHotbar:Destroy() end
+
+gui = Instance.new("ScreenGui")
+gui.Name = "PotatiumInventoryGui"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 60
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = playerGui
+
+inventoryPanel = Instance.new("Frame")
+inventoryPanel.Name = "InventoryPanel"
+inventoryPanel.Size = UDim2.fromOffset(690, 490)
+inventoryPanel.Position = UDim2.new(0.5, -345, 0.5, -270)
+inventoryPanel.BackgroundColor3 = COLORS.Background
+inventoryPanel.BorderSizePixel = 0
+inventoryPanel.Visible = false
+inventoryPanel.Parent = gui
+round(inventoryPanel, 14)
+stroke(inventoryPanel, COLORS.Stroke, 1.5)
+
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1, 0, 0, 58)
+header.BackgroundColor3 = COLORS.Panel
+header.BorderSizePixel = 0
+header.Parent = inventoryPanel
+round(header, 14)
+
+local title = Instance.new("TextLabel")
+title.BackgroundTransparency = 1
+title.Position = UDim2.fromOffset(18, 8)
+title.Size = UDim2.new(0, 260, 0, 24)
+title.Text = "BACKPACK"
+title.TextColor3 = COLORS.Text
+title.TextSize = 19
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = header
+
+local subtitle = Instance.new("TextLabel")
+subtitle.BackgroundTransparency = 1
+subtitle.Position = UDim2.fromOffset(19, 32)
+subtitle.Size = UDim2.new(0, 340, 0, 16)
+subtitle.Text = "Drag items onto your hotbar to arrange your loadout"
+subtitle.TextColor3 = COLORS.Muted
+subtitle.TextSize = 10
+subtitle.Font = Enum.Font.Gotham
+subtitle.TextXAlignment = Enum.TextXAlignment.Left
+subtitle.Parent = header
+
+local close = makeTextButton(header, "Close", "✕", UDim2.fromOffset(34, 34), UDim2.new(1, -46, 0, 12), COLORS.Slot)
+close.TextSize = 16
+close.MouseButton1Click:Connect(function() inventoryPanel.Visible = false end)
+
+searchBox = Instance.new("TextBox")
+searchBox.Name = "Search"
+searchBox.Size = UDim2.new(1, -32, 0, 34)
+searchBox.Position = UDim2.fromOffset(16, 70)
+searchBox.BackgroundColor3 = COLORS.Panel2
+searchBox.BorderSizePixel = 0
+searchBox.PlaceholderText = "Search items..."
+searchBox.PlaceholderColor3 = COLORS.Muted
+searchBox.Text = ""
+searchBox.TextColor3 = COLORS.Text
+searchBox.TextSize = 13
+searchBox.Font = Enum.Font.Gotham
+searchBox.ClearTextOnFocus = false
+searchBox.Parent = inventoryPanel
+round(searchBox, 8)
+stroke(searchBox, COLORS.Stroke)
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	searchText = searchBox.Text
+	renderItems()
+end)
+
+local categories = {"All", "Potatoes", "Hoes", "Seeds", "Crates", "Items"}
+local categoryRow = Instance.new("Frame")
+categoryRow.BackgroundTransparency = 1
+categoryRow.Position = UDim2.fromOffset(16, 113)
+categoryRow.Size = UDim2.new(1, -32, 0, 32)
+categoryRow.Parent = inventoryPanel
+
+local categoryLayout = Instance.new("UIListLayout")
+categoryLayout.FillDirection = Enum.FillDirection.Horizontal
+categoryLayout.Padding = UDim.new(0, 6)
+categoryLayout.Parent = categoryRow
+
+for _, category in ipairs(categories) do
+	local button = makeTextButton(categoryRow, category, category, UDim2.fromOffset(category == "Potatoes" and 86 or 72, 30), UDim2.new(), COLORS.Panel2)
+	button.MouseButton1Click:Connect(function()
+		selectedCategory = category
+		for _, child in ipairs(categoryRow:GetChildren()) do
+			if child:IsA("TextButton") then
+				child.BackgroundColor3 = child.Name == category and COLORS.AccentSoft or COLORS.Panel2
+			end
+		end
+		renderItems()
+	end)
+	if category == "All" then button.BackgroundColor3 = COLORS.AccentSoft end
+end
+
+itemScroll = Instance.new("ScrollingFrame")
+itemScroll.Name = "Items"
+itemScroll.Position = UDim2.fromOffset(16, 154)
+itemScroll.Size = UDim2.new(1, -32, 1, -198)
+itemScroll.BackgroundColor3 = COLORS.Panel
+itemScroll.BorderSizePixel = 0
+itemScroll.ScrollBarThickness = 6
+itemScroll.ScrollBarImageColor3 = COLORS.Accent
+itemScroll.CanvasSize = UDim2.new()
+itemScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+itemScroll.Parent = inventoryPanel
+round(itemScroll, 10)
+
+itemGrid = Instance.new("UIGridLayout")
+itemGrid.CellSize = UDim2.fromOffset(126, 112)
+itemGrid.CellPadding = UDim2.fromOffset(10, 10)
+itemGrid.SortOrder = Enum.SortOrder.LayoutOrder
+itemGrid.Parent = itemScroll
+
+statusLabel = Instance.new("TextLabel")
+statusLabel.BackgroundTransparency = 1
+statusLabel.Position = UDim2.new(0, 18, 1, -34)
+statusLabel.Size = UDim2.new(1, -36, 0, 24)
+statusLabel.TextColor3 = COLORS.Muted
+statusLabel.TextSize = 11
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.Parent = inventoryPanel
+
+hotbarFrame = Instance.new("Frame")
+hotbarFrame.Name = "Hotbar"
+hotbarFrame.AnchorPoint = Vector2.new(0.5, 1)
+hotbarFrame.Position = UDim2.new(0.5, 0, 1, -14)
+hotbarFrame.Size = UDim2.fromOffset(8 * 72 + 7 * 7 + 24, 88)
+hotbarFrame.BackgroundColor3 = COLORS.Background
+hotbarFrame.BackgroundTransparency = 0.04
+hotbarFrame.BorderSizePixel = 0
+hotbarFrame.Parent = gui
+round(hotbarFrame, 13)
+stroke(hotbarFrame, COLORS.Stroke, 1.3)
+
+local hotbarLayout = Instance.new("UIListLayout")
+hotbarLayout.FillDirection = Enum.FillDirection.Horizontal
+hotbarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+hotbarLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+hotbarLayout.Padding = UDim.new(0, 7)
+hotbarLayout.Parent = hotbarFrame
+
+local hotbarPadding = Instance.new("UIPadding")
+hotbarPadding.PaddingLeft = UDim.new(0, 12)
+hotbarPadding.PaddingRight = UDim.new(0, 12)
+hotbarPadding.Parent = hotbarFrame
+
+for slot = 1, HOTBAR_COUNT do
+	local button = Instance.new("TextButton")
+	button.Name = "Slot" .. tostring(slot)
+	button.Size = UDim2.fromOffset(72, 66)
+	button.BackgroundColor3 = COLORS.Empty
+	button.BorderSizePixel = 0
+	button.Text = ""
+	button.AutoButtonColor = false
+	button.Parent = hotbarFrame
+	round(button, 9)
+	local st = stroke(button, COLORS.Stroke, 1)
+	st.Name = "SlotStroke"
+
+	local number = Instance.new("TextLabel")
+	number.Name = "Number"
+	number.BackgroundTransparency = 1
+	number.Position = UDim2.fromOffset(5, 3)
+	number.Size = UDim2.fromOffset(16, 13)
+	number.Text = tostring(slot)
+	number.TextColor3 = COLORS.Muted
+	number.TextSize = 10
+	number.Font = Enum.Font.GothamBold
+	number.Parent = button
+
+	local icon = Instance.new("TextLabel")
+	icon.Name = "Icon"
+	icon.BackgroundTransparency = 1
+	icon.Position = UDim2.fromOffset(0, 11)
+	icon.Size = UDim2.new(1, 0, 0, 31)
+	icon.Text = ""
+	icon.TextColor3 = COLORS.Text
+	icon.TextSize = 24
+	icon.Font = Enum.Font.GothamBold
+	icon.Parent = button
+
+	local name = Instance.new("TextLabel")
+	name.Name = "Name"
+	name.BackgroundTransparency = 1
+	name.Position = UDim2.fromOffset(3, 43)
+	name.Size = UDim2.new(1, -6, 0, 17)
+	name.Text = "Empty"
+	name.TextColor3 = COLORS.Text
+	name.TextSize = 9
+	name.Font = Enum.Font.GothamSemibold
+	name.TextTruncate = Enum.TextTruncate.AtEnd
+	name.Parent = button
+
+	button.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			beginDrag("Hotbar", slotKeys[slot], slot, input)
+		end
+	end)
+	button.MouseButton1Click:Connect(function()
+		if not dragState then useSlot(slot) end
+	end)
+	slotButtons[slot] = button
+end
+
+--==================================================
+-- DRAG HANDLING
+--==================================================
+
+UserInputService.InputChanged:Connect(function(input)
+	if not dragState then return end
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input == dragState.Input then
+		local point = Vector2.new(input.Position.X, input.Position.Y)
+		if not dragState.Moved and (point - dragState.Start).Magnitude >= 8 then
+			dragState.Moved = true
+			local entry = findTool(dragState.Key)
+			if entry then
+				local fakeEntry = {Tool = entry}
+				makeDragGhost(fakeEntry)
+			end
+		end
+		if dragState.Moved and dragGhost then
+			dragGhost.Position = UDim2.fromOffset(point.X + 12, point.Y + 12)
+		end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if not dragState then return end
+	local isMouseRelease = input.UserInputType == Enum.UserInputType.MouseButton1
+	local isTouchRelease = input.UserInputType == Enum.UserInputType.Touch and input == dragState.Input
+	if isMouseRelease or isTouchRelease then
+		local point = UserInputService:GetMouseLocation()
+		if input.UserInputType == Enum.UserInputType.Touch then
+			point = Vector2.new(input.Position.X, input.Position.Y)
+		end
+		finishDrag(point)
+	end
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == OPEN_KEY then
+		inventoryPanel.Visible = not inventoryPanel.Visible
+		if inventoryPanel.Visible then refreshAll() end
+		return
+	end
+	local keyToSlot = {
+		[Enum.KeyCode.One] = 1, [Enum.KeyCode.Two] = 2,
+		[Enum.KeyCode.Three] = 3, [Enum.KeyCode.Four] = 4,
+		[Enum.KeyCode.Five] = 5, [Enum.KeyCode.Six] = 6,
+		[Enum.KeyCode.Seven] = 7, [Enum.KeyCode.Eight] = 8,
+	}
+	local slot = keyToSlot[input.KeyCode]
+	if slot and not UserInputService:GetFocusedTextBox() then
+		useSlot(slot)
+	end
+end)
+
+--==================================================
+-- REFRESH / RESPAWN
+--==================================================
+
+local refreshQueued = false
+function refreshAll()
+	if not gui then return end
+	if refreshQueued then return end
+	refreshQueued = true
+	task.delay(0.12, function()
+		refreshQueued = false
+		if not gui or not gui.Parent then return end
+		currentTools = scanTools()
+		assignUnslottedTools()
+		renderHotbar()
+		if inventoryPanel.Visible then renderItems() end
+	end)
+end
+
+local function connectContainer(container)
+	if not container then return end
+	container.ChildAdded:Connect(function(object)
+		if object:IsA("Tool") then refreshAll() end
+	end)
+	container.ChildRemoved:Connect(function(object)
+		if object:IsA("Tool") then refreshAll() end
+	end)
+end
+
+connectContainer(backpack)
+player.CharacterAdded:Connect(function(character)
+	task.wait(0.5)
+	connectContainer(character)
+	refreshAll()
+end)
+if player.Character then connectContainer(player.Character) end
+
+for _, attribute in ipairs({"PotatoInventoryRevision", "HoeInventoryRevision", "CrateInventoryRevision", "PotatoBits"}) do
+	player:GetAttributeChangedSignal(attribute):Connect(refreshAll)
+end
+
+pcall(function()
+	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
+end)
+
+refreshAll()
+
+print("🥔 POTATIUM DRAGGABLE BACKPACK + HOTBAR loaded")
+print("B = backpack | drag items to hotbar | drag slots back to backpack to unassign")
