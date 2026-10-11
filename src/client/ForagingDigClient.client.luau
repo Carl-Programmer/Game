@@ -338,6 +338,24 @@ local gripTween =
 -- Published hoe swing animation. Kept inside this controller so
 -- animation playback shares the same dig lifecycle and cannot fight
 -- a separate script over the equipped Tool.
+--==================================================
+-- HOE HOLD POSITION SETTINGS
+-- Edit these values to adjust how the hoe sits in your hand.
+-- Position is in studs; rotation is in degrees.
+--==================================================
+local HOE_HOLD_POSITION = Vector3.new(0, 0, 0)
+local HOE_HOLD_ROTATION_DEGREES = Vector3.new(0, 0, 0)
+
+local function getHoeHoldOffset()
+	return CFrame.new(HOE_HOLD_POSITION)
+		* CFrame.Angles(
+			math.rad(HOE_HOLD_ROTATION_DEGREES.X),
+			math.rad(HOE_HOLD_ROTATION_DEGREES.Y),
+			math.rad(HOE_HOLD_ROTATION_DEGREES.Z)
+		)
+end
+
+local originalHoeGrip = nil
 local HOE_ANIMATION_ID = "rbxassetid://121303700659683"
 local hoeAnimationTrack = nil
 local hoeAnimationHumanoid = nil
@@ -1952,11 +1970,9 @@ local function swingHoe(
 
 	if animatedHoe ~= hoe then
 
-		animatedHoe =
-			hoe
-
-		baseGrip =
-			hoe.Grip
+		animatedHoe = hoe
+		originalHoeGrip = hoe.Grip
+		baseGrip = originalHoeGrip * getHoeHoldOffset()
 
 	end
 
