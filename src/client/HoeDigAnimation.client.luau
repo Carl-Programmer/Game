@@ -15,7 +15,7 @@ local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 
-local ANIMATION_ID = "rbxassetid://PUT_YOUR_HOE_ANIMATION_ID_HERE"
+local ANIMATION_ID = "rbxassetid://121303700659683"
 local SWING_POINTS = { 0.12, 0.36, 0.61, 0.84 }
 
 -- Animation playback is fitted to the time between swings.
