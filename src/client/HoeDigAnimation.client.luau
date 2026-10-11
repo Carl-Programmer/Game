@@ -18,6 +18,57 @@ local player = Players.LocalPlayer
 local ANIMATION_ID = "rbxassetid://121303700659683"
 local SWING_POINTS = { 0.12, 0.36, 0.61, 0.84 }
 
+--==================================================
+-- HOE POSITION / ANGLE SETTINGS
+-- Edit ONLY these values to adjust how the hoe sits
+-- in the character's hand. Position is in studs;
+-- rotation is in degrees.
+--
+-- Start with 180 on X to flip the tool orientation.
+-- If that points the head the wrong way, try 180 on Y
+-- or Z instead. Use small position changes like 0.1.
+--==================================================
+local HOE_GRIP_POSITION = Vector3.new(0, 0, 0)
+local HOE_GRIP_ROTATION_DEGREES = Vector3.new(180, 0, 0)
+
+local function getHoeGripOffset(): CFrame
+	return CFrame.new(HOE_GRIP_POSITION)
+		* CFrame.Angles(
+			math.rad(HOE_GRIP_ROTATION_DEGREES.X),
+			math.rad(HOE_GRIP_ROTATION_DEGREES.Y),
+			math.rad(HOE_GRIP_ROTATION_DEGREES.Z)
+		)
+end
+
+local originalHoeGrip: CFrame? = nil
+local gripAdjustedHoe: Tool? = nil
+
+local function applyHoeGrip(hoe: Tool?)
+	if not hoe then
+		return
+	end
+
+	if gripAdjustedHoe ~= hoe then
+		if gripAdjustedHoe and originalHoeGrip then
+			gripAdjustedHoe.Grip = originalHoeGrip
+		end
+		gripAdjustedHoe = hoe
+		originalHoeGrip = hoe.Grip
+	end
+
+	if originalHoeGrip then
+		hoe.Grip = originalHoeGrip * getHoeGripOffset()
+	end
+end
+
+local function restoreHoeGrip()
+	if gripAdjustedHoe and originalHoeGrip then
+		gripAdjustedHoe.Grip = originalHoeGrip
+	end
+	gripAdjustedHoe = nil
+	originalHoeGrip = nil
+end
+
 -- Animation playback is fitted to the time between swings.
 -- Increase MIN_PLAYBACK_SPEED / MAX_PLAYBACK_SPEED only if needed.
 local MIN_PLAYBACK_SPEED = 0.65
@@ -146,6 +197,7 @@ local function playSwing()
 end
 
 local function stopDigAnimation()
+	restoreHoeGrip()
 	activeDigId = nil
 	activeDigTime = 0
 	activeEndServerTime = 0
@@ -167,10 +219,12 @@ digStarted.OnClientEvent:Connect(function(digTime, digId, _digSpot, endServerTim
 	activeEndServerTime = tonumber(endServerTime) or (workspace:GetServerTimeNow() + activeDigTime)
 	nextSwingIndex = 1
 
-	if not getEquippedHoe() then
+	local equippedHoe = getEquippedHoe()
+	if not equippedHoe then
 		stopDigAnimation()
 		return
 	end
+	applyHoeGrip(equippedHoe)
 
 	if not animationTrack or not loadedHumanoid or loadedHumanoid.Parent ~= player.Character then
 		loadAnimationForCharacter()
@@ -181,10 +235,12 @@ digStarted.OnClientEvent:Connect(function(digTime, digId, _digSpot, endServerTim
 			return
 		end
 
-		if not getEquippedHoe() then
+		local equippedHoe = getEquippedHoe()
+		if not equippedHoe then
 			stopDigAnimation()
 			return
 		end
+		applyHoeGrip(equippedHoe)
 
 		local remaining = activeEndServerTime - workspace:GetServerTimeNow()
 		local progress = math.clamp(1 - (remaining / activeDigTime), 0, 1)
