@@ -46,28 +46,21 @@ local MODEL_SCALE =
 -- Small final adjustment relative to player's hand.
 --==================================================
 
---==================================================
--- GLOBAL HOE HOLD POSITION / ANGLE
---
--- These settings are applied when this service builds a hoe Tool.
--- Keep these names/settings as the shared defaults for future hoe
--- tiers created by this service too.
---
--- Position values are studs. Rotation values are degrees.
--- Change one axis at a time while testing.
---==================================================
+local TOOL_GRIP_POSITION =
+	Vector3.new(
+		0,
+		-0.1,
+		-0.15
+	)
 
-local HOE_GRIP_POSITION = Vector3.new(0, -0.1, -0.15)
-local HOE_GRIP_ROTATION_DEGREES = Vector3.new(-8, 0, -10)
+-- Small natural tilt.
 
-local function buildHoeGrip(): CFrame
-	return CFrame.new(HOE_GRIP_POSITION)
-		* CFrame.Angles(
-			math.rad(HOE_GRIP_ROTATION_DEGREES.X),
-			math.rad(HOE_GRIP_ROTATION_DEGREES.Y),
-			math.rad(HOE_GRIP_ROTATION_DEGREES.Z)
-		)
-end
+local TOOL_GRIP_ROTATION =
+	Vector3.new(
+		-8,
+		0,
+		-10
+	)
 
 --==================================================
 -- HOW FAR FROM TOP OF SHAFT PLAYER HOLDS
@@ -727,7 +720,16 @@ local function buildHoe()
 	-- FINAL TOOL GRIP
 	--==================================================
 
-	tool.Grip = buildHoeGrip()
+	tool.Grip =
+		CFrame.new(
+			TOOL_GRIP_POSITION
+		)
+		*
+		CFrame.Angles(
+			math.rad(TOOL_GRIP_ROTATION.X),
+			math.rad(TOOL_GRIP_ROTATION.Y),
+			math.rad(TOOL_GRIP_ROTATION.Z)
+		)
 
 	--==================================================
 	-- CLONE VISUAL PARTS
