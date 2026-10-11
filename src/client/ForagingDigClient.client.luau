@@ -335,6 +335,13 @@ local baseGrip =
 local gripTween =
 	nil
 
+-- Published hoe swing animation. Kept inside this controller so
+-- animation playback shares the same dig lifecycle and cannot fight
+-- a separate script over the equipped Tool.
+local HOE_ANIMATION_ID = "rbxassetid://121303700659683"
+local hoeAnimationTrack = nil
+local hoeAnimationHumanoid = nil
+
 --==================================================
 -- CHARACTER
 --==================================================
@@ -1860,9 +1867,79 @@ local function restoreHoe()
 
 end
 
+local function loadHoeAnimation()
+	local character = getCharacter()
+	if not character then
+		return nil
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return nil
+	end
+
+	if hoeAnimationTrack and hoeAnimationHumanoid == humanoid then
+		return hoeAnimationTrack
+	end
+
+	if hoeAnimationTrack then
+		pcall(function()
+			hoeAnimationTrack:Stop(0.05)
+			hoeAnimationTrack:Destroy()
+		end)
+	end
+
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+
+	local animation = Instance.new("Animation")
+	animation.Name = "PotatiumHoeSwing"
+	animation.AnimationId = HOE_ANIMATION_ID
+
+	local ok, track = pcall(function()
+		return animator:LoadAnimation(animation)
+	end)
+	animation:Destroy()
+
+	if not ok or not track then
+		warn("[ForagingDigClient] Could not load hoe animation.")
+		return nil
+	end
+
+	hoeAnimationTrack = track
+	hoeAnimationHumanoid = humanoid
+	hoeAnimationTrack.Priority = Enum.AnimationPriority.Action
+	hoeAnimationTrack.Looped = false
+	return hoeAnimationTrack
+end
+
+local function playHoeCharacterAnimation()
+	local track = loadHoeAnimation()
+	if not track then
+		return
+	end
+
+	if track.IsPlaying then
+		track:Stop(0.03)
+	end
+	track.TimePosition = 0
+	track:Play(0.04, 1, 1)
+end
+
+local function stopHoeCharacterAnimation()
+	if hoeAnimationTrack and hoeAnimationTrack.IsPlaying then
+		hoeAnimationTrack:Stop(0.08)
+	end
+end
+
 local function swingHoe(
 	index
 )
+
+	playHoeCharacterAnimation()
 
 	local hoe =
 		getEquippedHoe()
@@ -2862,6 +2939,8 @@ local function resetSwingState()
 end
 
 local function resetDig()
+
+	stopHoeCharacterAnimation()
 
 	digging =
 		false
