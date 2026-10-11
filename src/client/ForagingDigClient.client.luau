@@ -1953,8 +1953,11 @@ local function swingHoe(
 
 	if animatedHoe ~= hoe then
 
-		animatedHoe = hoe
-		baseGrip = hoe.Grip
+		animatedHoe =
+			hoe
+
+		baseGrip =
+			hoe.Grip
 
 	end
 
