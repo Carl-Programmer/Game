@@ -337,6 +337,16 @@ local function buildHoe()
 	tool.Enabled = true
 
 	--==================================================
+	-- HOE ANIMATION
+	-- Clone the reusable animation LocalScript into every generated hoe.
+	--==================================================
+
+	local ServerStorage = game:GetService("ServerStorage")
+	local animationFolder = ServerStorage:WaitForChild("HoeAnimation")
+	local animationScript = animationFolder:WaitForChild("HoeAnimation"):Clone()
+	animationScript.Parent = tool
+
+	--==================================================
 	-- ATTRIBUTES
 	--==================================================
 
