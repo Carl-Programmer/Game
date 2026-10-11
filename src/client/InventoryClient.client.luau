@@ -389,6 +389,8 @@ local function clearItems()
 	table.clear(itemButtons)
 end
 
+local renderItems
+
 local function makeItemCard(entry, index)
 	local tool = entry.Tool
 	local card = Instance.new("Frame")
@@ -481,7 +483,7 @@ local function makeItemCard(entry, index)
 	table.insert(itemButtons, card)
 end
 
-local function renderItems()
+renderItems = function()
 	clearItems()
 	local shown = 0
 	local filtered = {}
