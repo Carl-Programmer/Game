@@ -18,12 +18,6 @@ local player = Players.LocalPlayer
 local ANIMATION_ID = "rbxassetid://121303700659683"
 local SWING_POINTS = { 0.12, 0.36, 0.61, 0.84 }
 
--- NOTE:
--- This script intentionally does not modify Tool.Grip.
--- Tool grip changes here interfered with normal hoe equipping.
--- Adjust the hoe Tool's Grip in Studio instead, or add a separate
--- attachment-based offset once the normal equip flow is confirmed.
-
 -- Animation playback is fitted to the time between swings.
 -- Increase MIN_PLAYBACK_SPEED / MAX_PLAYBACK_SPEED only if needed.
 local MIN_PLAYBACK_SPEED = 0.65
@@ -31,25 +25,25 @@ local MAX_PLAYBACK_SPEED = 3.5
 local ANIMATION_TIME_PER_DIG_RATIO = 0.22
 
 local remotes = ReplicatedStorage:WaitForChild("ForagingRemotes")
-local digStarted = remotes:WaitForChild("DigStarted") :: RemoteEvent
-local digCancelled = remotes:WaitForChild("DigCancelled") :: RemoteEvent
-local digFinished = remotes:WaitForChild("DigFinished") :: RemoteEvent
+local digStarted = remotes:WaitForChild("DigStarted")
+local digCancelled = remotes:WaitForChild("DigCancelled")
+local digFinished = remotes:WaitForChild("DigFinished")
 
-local activeDigId: any = nil
-local activeDigTime: number = 0
-local activeEndServerTime: number = 0
-local nextSwingIndex: number = 1
-local renderConnection: RBXScriptConnection? = nil
+local activeDigId = nil
+local activeDigTime = 0
+local activeEndServerTime = 0
+local nextSwingIndex = 1
+local renderConnection = nil
 
 local animation = Instance.new("Animation")
 animation.Name = "PotatiumHoeDigAnimation"
 animation.AnimationId = ANIMATION_ID
 
-local animationTrack: AnimationTrack? = nil
-local loadedHumanoid: Humanoid? = nil
+local animationTrack = nil
+local loadedHumanoid = nil
 
-local function getEquippedHoe(): Tool?
-	local character: Model? = player.Character
+local function getEquippedHoe()
+	local character = player.Character
 	if not character then
 		return nil
 	end
@@ -79,29 +73,27 @@ local function loadAnimationForCharacter()
 	animationTrack = nil
 	loadedHumanoid = nil
 
-	local character: Model? = player.Character
+	local character = player.Character
 	if not character then
 		return
 	end
 
-	local humanoidInstance = character:FindFirstChildOfClass("Humanoid")
-	if not humanoidInstance then
-		humanoidInstance = character:WaitForChild("Humanoid", 5)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		humanoid = character:WaitForChild("Humanoid", 5)
 	end
-	if not humanoidInstance or not humanoidInstance:IsA("Humanoid") then
+	if not humanoid then
 		return
 	end
-	local humanoid: Humanoid = humanoidInstance
 
-	local animatorInstance = humanoid:FindFirstChildOfClass("Animator")
-	if not animatorInstance then
-		animatorInstance = humanoid:WaitForChild("Animator", 5)
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = humanoid:WaitForChild("Animator", 5)
 	end
-	if not animatorInstance or not animatorInstance:IsA("Animator") then
+	if not animator then
 		warn("[HoeDigAnimation] Animator not found.")
 		return
 	end
-	local animator: Animator = animatorInstance
 
 	local ok, result = pcall(function()
 		return animator:LoadAnimation(animation)
