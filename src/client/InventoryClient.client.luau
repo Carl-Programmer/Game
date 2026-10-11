@@ -17,6 +17,7 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 
 local player = Players.LocalPlayer
@@ -53,8 +54,26 @@ local itemButtons = {}
 local currentTools = {}
 local selectedCategory = "All"
 local searchText = ""
--- Favorites are currently session-local; persistence can be added server-side later.
 local favoriteKeys = {}
+local inventoryRemotes = ReplicatedStorage:WaitForChild("PotatiumInventoryRemotes", 10)
+local getFavorites = inventoryRemotes and inventoryRemotes:FindFirstChild("GetFavorites")
+local setFavorite = inventoryRemotes and inventoryRemotes:FindFirstChild("SetFavorite")
+local getPotatoSnapshot = inventoryRemotes and inventoryRemotes:FindFirstChild("GetPotatoSnapshot")
+local crateRemotes = ReplicatedStorage:WaitForChild("PotatiumCrateRemotes", 10)
+local getEquipmentSnapshot = crateRemotes and crateRemotes:FindFirstChild("GetEquipmentSnapshot")
+
+local potatoMirror = script:FindFirstChild("PotatoInventoryMirror") or Instance.new("Folder")
+potatoMirror.Name = "PotatoInventoryMirror"
+potatoMirror.Parent = script
+local equipmentMirror = script:FindFirstChild("EquipmentInventoryMirror") or Instance.new("Folder")
+equipmentMirror.Name = "EquipmentInventoryMirror"
+equipmentMirror.Parent = script
+
+if getFavorites then
+	local ok, data = pcall(function() return getFavorites:InvokeServer() end)
+	if ok and type(data) == "table" then favoriteKeys = data end
+end
+
 local dragState = nil
 local dragGhost = nil
 local gui, inventoryPanel, itemGrid, itemScroll, searchBox, statusLabel, hotbarFrame
@@ -142,15 +161,33 @@ end
 
 local function scanTools()
 	local found, seen = {}, {}
+	local function addTool(object, allowDuplicateKey)
+		if not object or not object:IsA("Tool") then return end
+		local key = getToolKey(object)
+		if not key then return end
+		if seen[key] and not allowDuplicateKey then return end
+		-- Preserve distinct legacy items that share a display name/key.
+		if seen[key] and allowDuplicateKey then
+			local suffix = 2
+			while seen[key .. "#" .. suffix] do suffix += 1 end
+			key = key .. "#" .. suffix
+		end
+		seen[key] = true
+		table.insert(found, {Key = key, Tool = object, Type = getToolType(object)})
+	end
+
 	for _, container in ipairs(getContainers()) do
 		for _, object in ipairs(container:GetChildren()) do
 			if object:IsA("Tool") and object:GetAttribute("InventoryMirror") ~= true then
-				local key = getToolKey(object)
-				if key and not seen[key] then
-					seen[key] = true
-					table.insert(found, {Key = key, Tool = object, Type = getToolType(object)})
-				end
+				addTool(object, true)
 			end
+		end
+	end
+	-- Snapshot mirrors show saved potatoes/crates/hoes even when their real
+	-- Tools have not replicated into Backpack yet. Physical Tools take priority.
+	for _, folder in ipairs({potatoMirror, equipmentMirror}) do
+		for _, object in ipairs(folder:GetChildren()) do
+			if object:IsA("Tool") then addTool(object, false) end
 		end
 	end
 	table.sort(found, function(a, b)
@@ -354,13 +391,12 @@ end
 
 local function makeItemCard(entry, index)
 	local tool = entry.Tool
-	local card = Instance.new("TextButton")
+	local card = Instance.new("Frame")
 	card.Name = "Item_" .. tostring(index)
 	card.Size = UDim2.fromOffset(126, 112)
 	card.BackgroundColor3 = COLORS.Slot
 	card.BorderSizePixel = 0
-	card.AutoButtonColor = false
-	card.Text = ""
+	card.BorderSizePixel = 0
 	card.Parent = itemScroll
 	round(card, 10)
 	stroke(card, COLORS.Stroke, 1)
@@ -372,6 +408,7 @@ local function makeItemCard(entry, index)
 	icon.Text = getToolIcon(tool)
 	icon.TextSize = 30
 	icon.Font = Enum.Font.GothamBold
+	icon.ZIndex = 2
 	icon.Parent = card
 
 	local name = Instance.new("TextLabel")
@@ -384,6 +421,7 @@ local function makeItemCard(entry, index)
 	name.Font = Enum.Font.GothamSemibold
 	name.TextWrapped = true
 	name.TextTruncate = Enum.TextTruncate.AtEnd
+	name.ZIndex = 2
 	name.Parent = card
 
 	local detail = Instance.new("TextLabel")
@@ -395,6 +433,7 @@ local function makeItemCard(entry, index)
 	detail.TextSize = 9
 	detail.Font = Enum.Font.Gotham
 	detail.TextTruncate = Enum.TextTruncate.AtEnd
+	detail.ZIndex = 2
 	detail.Parent = card
 
 	local favoriteButton = Instance.new("TextButton")
@@ -413,24 +452,31 @@ local function makeItemCard(entry, index)
 	favoriteButton.Parent = card
 	round(favoriteButton, 7)
 	favoriteButton.MouseButton1Click:Connect(function()
-		if favoriteKeys[entry.Key] then
-			favoriteKeys[entry.Key] = nil
+		local newValue = favoriteKeys[entry.Key] ~= true
+		favoriteKeys[entry.Key] = newValue and true or nil
+		if setFavorite then setFavorite:FireServer(entry.Key, newValue) end
+		if selectedCategory == "Favorites" and not newValue then
+			task.defer(renderItems)
 		else
-			favoriteKeys[entry.Key] = true
+			favoriteButton.Text = newValue and "♥" or "♡"
+			favoriteButton.TextColor3 = newValue and COLORS.Red or COLORS.Muted
 		end
-		renderItems()
 	end)
 
-	card.MouseEnter:Connect(function() if not dragState then card.BackgroundColor3 = COLORS.SlotHover end end)
-	card.MouseLeave:Connect(function() card.BackgroundColor3 = COLORS.Slot end)
-	card.InputBegan:Connect(function(input)
+	-- Separate sibling buttons avoid nested TextButton input conflicts.
+	local clickButton = Instance.new("TextButton")
+	clickButton.Name = "CardClickArea"
+	clickButton.Size = UDim2.fromScale(1, 1)
+	clickButton.BackgroundTransparency = 1
+	clickButton.Text = ""
+	clickButton.ZIndex = 1
+	clickButton.Parent = card
+	clickButton.MouseEnter:Connect(function() if not dragState then card.BackgroundColor3 = COLORS.SlotHover end end)
+	clickButton.MouseLeave:Connect(function() card.BackgroundColor3 = COLORS.Slot end)
+	clickButton.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			beginDrag("Inventory", entry.Key, nil, input)
 		end
-	end)
-	card.MouseButton1Click:Connect(function()
-		if not dragState then return end
-		-- The global InputEnded handler handles both click and drag.
 	end)
 	table.insert(itemButtons, card)
 end
@@ -768,6 +814,72 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 --==================================================
+-- RESTORE SAVED INVENTORY MIRRORS
+--==================================================
+
+local function clearMirror(folder)
+	for _, child in ipairs(folder:GetChildren()) do child:Destroy() end
+end
+
+local function makeMirrorTool(folder, name, attributes)
+	local tool = Instance.new("Tool")
+	tool.Name = name
+	tool.RequiresHandle = false
+	tool.CanBeDropped = false
+	tool:SetAttribute("InventoryMirror", true)
+	for attribute, value in pairs(attributes) do
+		if value ~= nil then tool:SetAttribute(attribute, value) end
+	end
+	tool.Parent = folder
+	return tool
+end
+
+local function syncSavedInventory()
+	if getPotatoSnapshot then
+		local ok, records = pcall(function() return getPotatoSnapshot:InvokeServer() end)
+		if ok and type(records) == "table" then
+			clearMirror(potatoMirror)
+			for _, record in ipairs(records) do
+				if type(record) == "table" and record.Id ~= nil then
+					local potatoType = tostring(record.PotatoType or "Normal"):gsub("%s+Potato$", "")
+					makeMirrorTool(potatoMirror, tostring(record.DisplayName or (potatoType .. " Potato")), {
+						PotatoInventoryTool = true, PotatoId = record.Id, PotatoType = potatoType,
+						DisplayName = record.DisplayName or (potatoType .. " Potato"), Rarity = record.Rarity,
+						Mutation = record.Mutation, Weight = record.Weight or record.KG,
+						Favorite = record.Favorite == true,
+					})
+				end
+			end
+		end
+	end
+
+	if getEquipmentSnapshot then
+		local ok, snapshot = pcall(function() return getEquipmentSnapshot:InvokeServer() end)
+		if ok and type(snapshot) == "table" then
+			clearMirror(equipmentMirror)
+			for _, record in ipairs(type(snapshot.HoeInventory) == "table" and snapshot.HoeInventory or {}) do
+				if type(record) == "table" and record.Id ~= nil then
+					local tier = tostring(record.Tier or "Wooden")
+					makeMirrorTool(equipmentMirror, tier .. " Hoe", {
+						FarmingToolType = "Hoe", HoeId = record.Id, HoeTier = tier,
+						Durability = record.Durability, MaxDurability = record.MaxDurability,
+					})
+				end
+			end
+			local crates = type(snapshot.Crates) == "table" and snapshot.Crates or {}
+			for crateType, count in pairs(crates) do
+				local n = math.max(0, math.floor(tonumber(count) or 0))
+				if n > 0 then
+					makeMirrorTool(equipmentMirror, tostring(crateType) .. " Crate" .. (n > 1 and (" x" .. n) or ""), {
+						CrateTool = true, CrateType = tostring(crateType), CrateCount = n,
+					})
+				end
+			end
+		end
+	end
+end
+
+--==================================================
 -- REFRESH / RESPAWN
 --==================================================
 
@@ -779,6 +891,8 @@ function refreshAll()
 	task.delay(0.12, function()
 		refreshQueued = false
 		if not gui or not gui.Parent then return end
+		syncSavedInventory()
+		syncSavedInventory()
 		currentTools = scanTools()
 		assignUnslottedTools()
 		renderHotbar()
