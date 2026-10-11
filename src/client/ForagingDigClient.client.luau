@@ -1,23 +1,16 @@
-local Players =
-	game:GetService("Players")
+local Players = game:GetService("Players")
 
-local ReplicatedStorage =
-	game:GetService("ReplicatedStorage")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local UserInputService =
-	game:GetService("UserInputService")
+local UserInputService = game:GetService("UserInputService")
 
-local RunService =
-	game:GetService("RunService")
+local RunService = game:GetService("RunService")
 
-local TweenService =
-	game:GetService("TweenService")
+local TweenService = game:GetService("TweenService")
 
-local Debris =
-	game:GetService("Debris")
+local Debris = game:GetService("Debris")
 
-local Workspace =
-	game:GetService("Workspace")
+local Workspace = game:GetService("Workspace")
 
 --==================================================
 -- FORAGING DIG CLIENT V8
@@ -39,119 +32,61 @@ local Workspace =
 -- ❌ No vibration
 --==================================================
 
-local player =
-	Players.LocalPlayer
+local player = Players.LocalPlayer
 
-local playerGui =
-	player:WaitForChild(
-		"PlayerGui"
-	)
+local playerGui = player:WaitForChild("PlayerGui")
 
-local camera =
-	Workspace.CurrentCamera
+local camera = Workspace.CurrentCamera
 
 --==================================================
 -- WORLD
 --==================================================
 
-local world =
-	Workspace:WaitForChild(
-		"PotatoWorld"
-	)
+local world = Workspace:WaitForChild("PotatoWorld")
 
-local foragingZone =
-	world:WaitForChild(
-		"ForagingZone"
-	)
+local foragingZone = world:WaitForChild("ForagingZone")
 
-local zone1 =
-	nil
+local zone1 = nil
 
-for _, object in ipairs(
-	foragingZone:GetChildren()
-) do
-
-	if
-		object:IsA(
-			"Model"
-		)
-		and
-		object:GetAttribute(
-			"ZoneNumber"
-		)
-		==
-		1
-	then
-
-		zone1 =
-			object
+for _, object in ipairs(foragingZone:GetChildren()) do
+	if object:IsA("Model") and object:GetAttribute("ZoneNumber") == 1 then
+		zone1 = object
 
 		break
-
 	end
-
 end
 
 if not zone1 then
-
-	zone1 =
-		foragingZone:WaitForChild(
-			"Zone_1_MEADOW"
-		)
-
+	zone1 = foragingZone:WaitForChild("Zone_1_MEADOW")
 end
 
-local ground =
-	zone1:WaitForChild(
-		"Ground"
-	)
+local ground = zone1:WaitForChild("Ground")
 
 --==================================================
 -- REMOTES
 --==================================================
 
-local remotes =
-	ReplicatedStorage:WaitForChild(
-		"ForagingRemotes"
-	)
+local remotes = ReplicatedStorage:WaitForChild("ForagingRemotes")
 
-local RequestDig =
-	remotes:WaitForChild(
-		"RequestDig"
-	)
+local RequestDig = remotes:WaitForChild("RequestDig")
 
-local CancelDig =
-	remotes:WaitForChild(
-		"CancelDig"
-	)
+local CancelDig = remotes:WaitForChild("CancelDig")
 
-local DigStarted =
-	remotes:WaitForChild(
-		"DigStarted"
-	)
+local DigStarted = remotes:WaitForChild("DigStarted")
 
-local DigCancelled =
-	remotes:WaitForChild(
-		"DigCancelled"
-	)
+local DigCancelled = remotes:WaitForChild("DigCancelled")
 
-local DigFinished =
-	remotes:WaitForChild(
-		"DigFinished"
-	)
+local DigFinished = remotes:WaitForChild("DigFinished")
 
 --==================================================
 -- SETTINGS
 --==================================================
 
-local MAX_PLAYER_RADIUS =
-	6
+local MAX_PLAYER_RADIUS = 6
 
-local LOOK_AWAY_RADIUS =
-	5
+local LOOK_AWAY_RADIUS = 5
 
-local REQUEST_TIMEOUT =
-	2
+local REQUEST_TIMEOUT = 2
 
 local SWING_POINTS = {
 
@@ -159,11 +94,9 @@ local SWING_POINTS = {
 	0.36,
 	0.61,
 	0.84,
-
 }
 
-local WINDUP_POINT =
-	0.94
+local WINDUP_POINT = 0.94
 
 --==================================================
 -- REALISTIC HIT SOUND
@@ -171,8 +104,7 @@ local WINDUP_POINT =
 -- Built-in generic Roblox impact.
 --==================================================
 
-local HOE_IMPACT_SOUND =
-	"rbxasset://sounds/impact_generic.mp3"
+local HOE_IMPACT_SOUND = "rbxasset://sounds/impact_generic.mp3"
 
 -- We intentionally no longer use the old chime.
 
@@ -183,11 +115,9 @@ local HOE_IMPACT_SOUND =
 -- New = 1.20
 --==================================================
 
-local DIRT_VISIBILITY =
-	1.20
+local DIRT_VISIBILITY = 1.20
 
-local DIRT_PARTICLE_MULTIPLIER =
-	1.20
+local DIRT_PARTICLE_MULTIPLIER = 1.20
 
 --==================================================
 -- HIT VARIATIONS
@@ -204,7 +134,6 @@ local HIT_SETTINGS = {
 		Volume = 0.55,
 		Speed = 0.82,
 		Dirt = 10,
-
 	},
 
 	[2] = {
@@ -212,7 +141,6 @@ local HIT_SETTINGS = {
 		Volume = 0.62,
 		Speed = 0.89,
 		Dirt = 12,
-
 	},
 
 	[3] = {
@@ -220,7 +148,6 @@ local HIT_SETTINGS = {
 		Volume = 0.68,
 		Speed = 0.95,
 		Dirt = 14,
-
 	},
 
 	[4] = {
@@ -228,9 +155,7 @@ local HIT_SETTINGS = {
 		Volume = 0.76,
 		Speed = 0.86,
 		Dirt = 18,
-
 	},
-
 }
 
 --==================================================
@@ -268,8 +193,7 @@ local POTATO_COLORS = {
 	["Sunkissed Potato"] = Color3.fromRGB(255, 179, 54),
 }
 
-local ROLL_TICK_SOUND =
-	"rbxasset://sounds/electronicpingshort.wav"
+local ROLL_TICK_SOUND = "rbxasset://sounds/electronicpingshort.wav"
 
 local ROLL_STEPS = 18
 
@@ -284,35 +208,25 @@ local FINAL_RESULT_HOLD_TIME = 2.4
 -- STATE
 --==================================================
 
-local mouseHeld =
-	false
+local mouseHeld = false
 
-local requestPending =
-	false
+local requestPending = false
 
-local digging =
-	false
+local digging = false
 
-local currentDigId =
-	nil
+local currentDigId = nil
 
-local currentDigSpot =
-	nil
+local currentDigSpot = nil
 
-local currentDigTime =
-	0
+local currentDigTime = 0
 
-local currentEndServerTime =
-	0
+local currentEndServerTime = 0
 
-local currentStartPosition =
-	nil
+local currentStartPosition = nil
 
-local requestSerial =
-	0
+local requestSerial = 0
 
-local targetSpot =
-	nil
+local targetSpot = nil
 
 local swingDone = {
 
@@ -320,56 +234,32 @@ local swingDone = {
 	false,
 	false,
 	false,
-
 }
 
-local windupDone =
-	false
+local windupDone = false
 
-local animatedHoe =
-	nil
+local animatedHoe = nil
 
-local baseGrip =
-	nil
+local baseGrip = nil
 
-local gripTween =
-	nil
-
--- Published hoe swing animation. Kept inside this controller so
--- animation playback shares the same dig lifecycle and cannot fight
--- a separate script over the equipped Tool.
--- Animation playback stays here; grip/hold settings belong in WoodenHoeService.
-local HOE_ANIMATION_ID = "rbxassetid://121303700659683"
-local hoeAnimationTrack = nil
-local hoeAnimationHumanoid = nil
+local gripTween = nil
 
 --==================================================
 -- CHARACTER
 --==================================================
 
 local function getCharacter()
-
-	return
-		player.Character
-
+	return player.Character
 end
 
 local function getRoot()
-
-	local character =
-		getCharacter()
+	local character = getCharacter()
 
 	if not character then
-
 		return nil
-
 	end
 
-	return
-		character:FindFirstChild(
-			"HumanoidRootPart"
-		)
-
+	return character:FindFirstChild("HumanoidRootPart")
 end
 
 --==================================================
@@ -377,296 +267,137 @@ end
 --==================================================
 
 local function getEquippedHoe()
-
-	local character =
-		getCharacter()
+	local character = getCharacter()
 
 	if not character then
-
 		return nil
-
 	end
 
-	for _, object in ipairs(
-		character:GetChildren()
-	) do
-
+	for _, object in ipairs(character:GetChildren()) do
 		if
-			object:IsA(
-				"Tool"
-			)
-			and
-			(
-				object:GetAttribute(
-					"FarmingToolType"
-				)
-				==
-				"Hoe"
-				or
-				string.find(
-					string.lower(
-						object.Name
-					),
-					"hoe"
-				)
-			)
+			object:IsA("Tool")
+			and (object:GetAttribute("FarmingToolType") == "Hoe" or string.find(string.lower(object.Name), "hoe"))
 		then
-
 			return object
-
 		end
-
 	end
 
 	return nil
-
 end
 
 --==================================================
 -- GUI
 --==================================================
 
-local oldGui =
-	playerGui:FindFirstChild(
-		"ForagingDigGui"
-	)
+local oldGui = playerGui:FindFirstChild("ForagingDigGui")
 
 if oldGui then
-
 	oldGui:Destroy()
-
 end
 
-local gui =
-	Instance.new(
-		"ScreenGui"
-	)
+local gui = Instance.new("ScreenGui")
 
-gui.Name =
-	"ForagingDigGui"
+gui.Name = "ForagingDigGui"
 
-gui.ResetOnSpawn =
-	false
+gui.ResetOnSpawn = false
 
-gui.DisplayOrder =
-	15
+gui.DisplayOrder = 15
 
-gui.Parent =
-	playerGui
+gui.Parent = playerGui
 
 --==================================================
 -- DIG PANEL
 --==================================================
 
-local digPanel =
-	Instance.new(
-		"Frame"
-	)
+local digPanel = Instance.new("Frame")
 
-digPanel.AnchorPoint =
-	Vector2.new(
-		0.5,
-		1
-	)
+digPanel.AnchorPoint = Vector2.new(0.5, 1)
 
-digPanel.Position =
-	UDim2.new(
-		0.5,
-		0,
-		1,
-		-80
-	)
+digPanel.Position = UDim2.new(0.5, 0, 1, -80)
 
-digPanel.Size =
-	UDim2.fromOffset(
-		325,
-		88
-	)
+digPanel.Size = UDim2.fromOffset(325, 88)
 
-digPanel.BackgroundColor3 =
-	Color3.fromRGB(
-		48,
-		33,
-		22
-	)
+digPanel.BackgroundColor3 = Color3.fromRGB(48, 33, 22)
 
-digPanel.BorderSizePixel =
-	0
+digPanel.BorderSizePixel = 0
 
-digPanel.Visible =
-	false
+digPanel.Visible = false
 
-digPanel.Parent =
-	gui
+digPanel.Parent = gui
 
-local corner =
-	Instance.new(
-		"UICorner"
-	)
+local corner = Instance.new("UICorner")
 
-corner.CornerRadius =
-	UDim.new(
-		0,
-		13
-	)
+corner.CornerRadius = UDim.new(0, 13)
 
-corner.Parent =
-	digPanel
+corner.Parent = digPanel
 
-local stroke =
-	Instance.new(
-		"UIStroke"
-	)
+local stroke = Instance.new("UIStroke")
 
-stroke.Color =
-	Color3.fromRGB(
-		10,
-		8,
-		6
-	)
+stroke.Color = Color3.fromRGB(10, 8, 6)
 
-stroke.Thickness =
-	4
+stroke.Thickness = 4
 
-stroke.Parent =
-	digPanel
+stroke.Parent = digPanel
 
 --==================================================
 -- DIG TEXT
 --==================================================
 
-local digText =
-	Instance.new(
-		"TextLabel"
-	)
+local digText = Instance.new("TextLabel")
 
-digText.BackgroundTransparency =
-	1
+digText.BackgroundTransparency = 1
 
-digText.Position =
-	UDim2.new(
-		0,
-		10,
-		0,
-		7
-	)
+digText.Position = UDim2.new(0, 10, 0, 7)
 
-digText.Size =
-	UDim2.new(
-		1,
-		-20,
-		0,
-		35
-	)
+digText.Size = UDim2.new(1, -20, 0, 35)
 
-digText.Text =
-	"HOLD CLICK • DIGGING"
+digText.Text = "HOLD CLICK • DIGGING"
 
-digText.TextColor3 =
-	Color3.fromRGB(
-		255,
-		239,
-		202
-	)
+digText.TextColor3 = Color3.fromRGB(255, 239, 202)
 
-digText.Font =
-	Enum.Font.GothamBold
+digText.Font = Enum.Font.GothamBold
 
-digText.TextSize =
-	13
+digText.TextSize = 13
 
-digText.Parent =
-	digPanel
+digText.Parent = digPanel
 
 --==================================================
 -- PROGRESS
 --==================================================
 
-local progressBack =
-	Instance.new(
-		"Frame"
-	)
+local progressBack = Instance.new("Frame")
 
-progressBack.Position =
-	UDim2.new(
-		0,
-		18,
-		0,
-		54
-	)
+progressBack.Position = UDim2.new(0, 18, 0, 54)
 
-progressBack.Size =
-	UDim2.new(
-		1,
-		-36,
-		0,
-		15
-	)
+progressBack.Size = UDim2.new(1, -36, 0, 15)
 
-progressBack.BackgroundColor3 =
-	Color3.fromRGB(
-		24,
-		18,
-		13
-	)
+progressBack.BackgroundColor3 = Color3.fromRGB(24, 18, 13)
 
-progressBack.BorderSizePixel =
-	0
+progressBack.BorderSizePixel = 0
 
-progressBack.Parent =
-	digPanel
+progressBack.Parent = digPanel
 
-local backCorner =
-	Instance.new(
-		"UICorner"
-	)
+local backCorner = Instance.new("UICorner")
 
-backCorner.CornerRadius =
-	UDim.new(
-		1,
-		0
-	)
+backCorner.CornerRadius = UDim.new(1, 0)
 
-backCorner.Parent =
-	progressBack
+backCorner.Parent = progressBack
 
-local progress =
-	Instance.new(
-		"Frame"
-	)
+local progress = Instance.new("Frame")
 
-progress.Size =
-	UDim2.fromScale(
-		0,
-		1
-	)
+progress.Size = UDim2.fromScale(0, 1)
 
-progress.BackgroundColor3 =
-	Color3.fromRGB(
-		106,
-		169,
-		75
-	)
+progress.BackgroundColor3 = Color3.fromRGB(106, 169, 75)
 
-progress.BorderSizePixel =
-	0
+progress.BorderSizePixel = 0
 
-progress.Parent =
-	progressBack
+progress.Parent = progressBack
 
-local progressCorner =
-	Instance.new(
-		"UICorner"
-	)
+local progressCorner = Instance.new("UICorner")
 
-progressCorner.CornerRadius =
-	UDim.new(
-		1,
-		0
-	)
+progressCorner.CornerRadius = UDim.new(1, 0)
 
-progressCorner.Parent =
-	progress
+progressCorner.Parent = progress
 
 --==================================================
 -- RESULT / TOP-TO-BOTTOM POTATO ROLL UI
@@ -675,73 +406,33 @@ progressCorner.Parent =
 -- Simple result label used only for messages such as
 -- CANCELLED or NOTHING HERE.
 
-local result =
-	Instance.new(
-		"TextLabel"
-	)
+local result = Instance.new("TextLabel")
 
-result.AnchorPoint =
-	Vector2.new(
-		0.5,
-		1
-	)
+result.AnchorPoint = Vector2.new(0.5, 1)
 
-result.Position =
-	UDim2.new(
-		0.5,
-		0,
-		1,
-		-180
-	)
+result.Position = UDim2.new(0.5, 0, 1, -180)
 
-result.Size =
-	UDim2.fromOffset(
-		330,
-		65
-	)
+result.Size = UDim2.fromOffset(330, 65)
 
-result.BackgroundColor3 =
-	Color3.fromRGB(
-		42,
-		30,
-		20
-	)
+result.BackgroundColor3 = Color3.fromRGB(42, 30, 20)
 
-result.BackgroundTransparency =
-	0.08
+result.BackgroundTransparency = 0.08
 
-result.TextColor3 =
-	Color3.new(
-		1,
-		1,
-		1
-	)
+result.TextColor3 = Color3.new(1, 1, 1)
 
-result.TextSize =
-	16
+result.TextSize = 16
 
-result.Font =
-	Enum.Font.GothamBold
+result.Font = Enum.Font.GothamBold
 
-result.Visible =
-	false
+result.Visible = false
 
-result.Parent =
-	gui
+result.Parent = gui
 
-local resultCorner =
-	Instance.new(
-		"UICorner"
-	)
+local resultCorner = Instance.new("UICorner")
 
-resultCorner.CornerRadius =
-	UDim.new(
-		0,
-		12
-	)
+resultCorner.CornerRadius = UDim.new(0, 12)
 
-resultCorner.Parent =
-	result
+resultCorner.Parent = result
 
 --==================================================
 -- TOP-TO-BOTTOM ROLL PANEL
@@ -751,867 +442,410 @@ resultCorner.Parent =
 -- The reel moves FROM TOP TO BOTTOM.
 --==================================================
 
-local rollPanel =
-	Instance.new(
-		"Frame"
-	)
+local rollPanel = Instance.new("Frame")
 
-rollPanel.AnchorPoint =
-	Vector2.new(
-		0.5,
-		1
-	)
+rollPanel.AnchorPoint = Vector2.new(0.5, 1)
 
-rollPanel.Position =
-	UDim2.new(
-		0.5,
-		0,
-		1,
-		-145
-	)
+rollPanel.Position = UDim2.new(0.5, 0, 1, -145)
 
-rollPanel.Size =
-	UDim2.fromOffset(
-		350,
-		210
-	)
+rollPanel.Size = UDim2.fromOffset(350, 210)
 
-rollPanel.BackgroundColor3 =
-	Color3.fromRGB(
-		24,
-		20,
-		16
-	)
+rollPanel.BackgroundColor3 = Color3.fromRGB(24, 20, 16)
 
-rollPanel.BackgroundTransparency =
-	0.04
+rollPanel.BackgroundTransparency = 0.04
 
-rollPanel.BorderSizePixel =
-	0
+rollPanel.BorderSizePixel = 0
 
-rollPanel.Visible =
-	false
+rollPanel.Visible = false
 
-rollPanel.ClipsDescendants =
-	true
+rollPanel.ClipsDescendants = true
 
-rollPanel.Parent =
-	gui
+rollPanel.Parent = gui
 
-local rollCorner =
-	Instance.new(
-		"UICorner"
-	)
+local rollCorner = Instance.new("UICorner")
 
-rollCorner.CornerRadius =
-	UDim.new(
-		0,
-		14
-	)
+rollCorner.CornerRadius = UDim.new(0, 14)
 
-rollCorner.Parent =
-	rollPanel
+rollCorner.Parent = rollPanel
 
-local rollStroke =
-	Instance.new(
-		"UIStroke"
-	)
+local rollStroke = Instance.new("UIStroke")
 
-rollStroke.Color =
-	Color3.fromRGB(
-		94,
-		190,
-		96
-	)
+rollStroke.Color = Color3.fromRGB(94, 190, 96)
 
-rollStroke.Transparency =
-	0.18
+rollStroke.Transparency = 0.18
 
-rollStroke.Thickness =
-	2
+rollStroke.Thickness = 2
 
-rollStroke.Parent =
-	rollPanel
+rollStroke.Parent = rollPanel
 
-local rollGradient =
-	Instance.new(
-		"UIGradient"
-	)
+local rollGradient = Instance.new("UIGradient")
 
-rollGradient.Color =
-	ColorSequence.new({
-		ColorSequenceKeypoint.new(
-			0,
-			Color3.fromRGB(44, 31, 20)
-		),
-		ColorSequenceKeypoint.new(
-			0.5,
-			Color3.fromRGB(20, 26, 18)
-		),
-		ColorSequenceKeypoint.new(
-			1,
-			Color3.fromRGB(44, 31, 20)
-		),
-	})
+rollGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(44, 31, 20)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(20, 26, 18)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(44, 31, 20)),
+})
 
-rollGradient.Rotation =
-	90
+rollGradient.Rotation = 90
 
-rollGradient.Parent =
-	rollPanel
+rollGradient.Parent = rollPanel
 
 --==================================================
 -- TOP TITLE BAR
 --==================================================
 
-local rollTitle =
-	Instance.new(
-		"TextLabel"
-	)
+local rollTitle = Instance.new("TextLabel")
 
-rollTitle.BackgroundTransparency =
-	1
+rollTitle.BackgroundTransparency = 1
 
-rollTitle.Position =
-	UDim2.fromOffset(
-		18,
-		7
-	)
+rollTitle.Position = UDim2.fromOffset(18, 7)
 
-rollTitle.Size =
-	UDim2.new(
-		1,
-		-36,
-		0,
-		24
-	)
+rollTitle.Size = UDim2.new(1, -36, 0, 24)
 
-rollTitle.Text =
-	"MEADOW ROLL"
+rollTitle.Text = "MEADOW ROLL"
 
-rollTitle.TextColor3 =
-	Color3.fromRGB(
-		228,
-		241,
-		220
-	)
+rollTitle.TextColor3 = Color3.fromRGB(228, 241, 220)
 
-rollTitle.TextTransparency =
-	0.08
+rollTitle.TextTransparency = 0.08
 
-rollTitle.Font =
-	Enum.Font.GothamBold
+rollTitle.Font = Enum.Font.GothamBold
 
-rollTitle.TextSize =
-	14
+rollTitle.TextSize = 14
 
-rollTitle.ZIndex =
-	8
+rollTitle.ZIndex = 8
 
-rollTitle.Parent =
-	rollPanel
+rollTitle.Parent = rollPanel
 
-local titleLine =
-	Instance.new(
-		"Frame"
-	)
+local titleLine = Instance.new("Frame")
 
-titleLine.Position =
-	UDim2.new(
-		0,
-		18,
-		0,
-		34
-	)
+titleLine.Position = UDim2.new(0, 18, 0, 34)
 
-titleLine.Size =
-	UDim2.new(
-		1,
-		-36,
-		0,
-		1
-	)
+titleLine.Size = UDim2.new(1, -36, 0, 1)
 
-titleLine.BackgroundColor3 =
-	Color3.fromRGB(
-		92,
-		132,
-		78
-	)
+titleLine.BackgroundColor3 = Color3.fromRGB(92, 132, 78)
 
-titleLine.BackgroundTransparency =
-	0.45
+titleLine.BackgroundTransparency = 0.45
 
-titleLine.BorderSizePixel =
-	0
+titleLine.BorderSizePixel = 0
 
-titleLine.ZIndex =
-	8
+titleLine.ZIndex = 8
 
-titleLine.Parent =
-	rollPanel
+titleLine.Parent = rollPanel
 
 --==================================================
 -- CENTER SELECTION SLOT
 --==================================================
 
-local centerSlot =
-	Instance.new(
-		"Frame"
-	)
+local centerSlot = Instance.new("Frame")
 
-centerSlot.AnchorPoint =
-	Vector2.new(
-		0.5,
-		0.5
-	)
+centerSlot.AnchorPoint = Vector2.new(0.5, 0.5)
 
-centerSlot.Position =
-	UDim2.new(
-		0.5,
-		0,
-		0,
-		120
-	)
+centerSlot.Position = UDim2.new(0.5, 0, 0, 120)
 
-centerSlot.Size =
-	UDim2.fromOffset(
-		292,
-		48
-	)
+centerSlot.Size = UDim2.fromOffset(292, 48)
 
-centerSlot.BackgroundColor3 =
-	Color3.fromRGB(
-		70,
-		150,
-		72
-	)
+centerSlot.BackgroundColor3 = Color3.fromRGB(70, 150, 72)
 
-centerSlot.BackgroundTransparency =
-	0.86
+centerSlot.BackgroundTransparency = 0.86
 
-centerSlot.BorderSizePixel =
-	0
+centerSlot.BorderSizePixel = 0
 
-centerSlot.ZIndex =
-	2
+centerSlot.ZIndex = 2
 
-centerSlot.Parent =
-	rollPanel
+centerSlot.Parent = rollPanel
 
-local centerCorner =
-	Instance.new(
-		"UICorner"
-	)
+local centerCorner = Instance.new("UICorner")
 
-centerCorner.CornerRadius =
-	UDim.new(
-		0,
-		10
-	)
+centerCorner.CornerRadius = UDim.new(0, 10)
 
-centerCorner.Parent =
-	centerSlot
+centerCorner.Parent = centerSlot
 
-local centerStroke =
-	Instance.new(
-		"UIStroke"
-	)
+local centerStroke = Instance.new("UIStroke")
 
-centerStroke.Color =
-	Color3.fromRGB(
-		105,
-		255,
-		116
-	)
+centerStroke.Color = Color3.fromRGB(105, 255, 116)
 
-centerStroke.Transparency =
-	0.26
+centerStroke.Transparency = 0.26
 
-centerStroke.Thickness =
-	1.5
+centerStroke.Thickness = 1.5
 
-centerStroke.Parent =
-	centerSlot
+centerStroke.Parent = centerSlot
 
 -- Top + bottom markers point at the center row.
-local topMarker =
-	Instance.new(
-		"TextLabel"
-	)
+local topMarker = Instance.new("TextLabel")
 
-topMarker.AnchorPoint =
-	Vector2.new(
-		0.5,
-		0
-	)
+topMarker.AnchorPoint = Vector2.new(0.5, 0)
 
-topMarker.Position =
-	UDim2.new(
-		0.5,
-		0,
-		0,
-		87
-	)
+topMarker.Position = UDim2.new(0.5, 0, 0, 87)
 
-topMarker.Size =
-	UDim2.fromOffset(
-		28,
-		18
-	)
+topMarker.Size = UDim2.fromOffset(28, 18)
 
-topMarker.BackgroundTransparency =
-	1
+topMarker.BackgroundTransparency = 1
 
-topMarker.Text =
-	"▼"
+topMarker.Text = "▼"
 
-topMarker.TextColor3 =
-	Color3.fromRGB(
-		121,
-		255,
-		126
-	)
+topMarker.TextColor3 = Color3.fromRGB(121, 255, 126)
 
-topMarker.Font =
-	Enum.Font.GothamBold
+topMarker.Font = Enum.Font.GothamBold
 
-topMarker.TextSize =
-	14
+topMarker.TextSize = 14
 
-topMarker.ZIndex =
-	7
+topMarker.ZIndex = 7
 
-topMarker.Parent =
-	rollPanel
+topMarker.Parent = rollPanel
 
-local bottomMarker =
-	topMarker:Clone()
+local bottomMarker = topMarker:Clone()
 
-bottomMarker.AnchorPoint =
-	Vector2.new(
-		0.5,
-		1
-	)
+bottomMarker.AnchorPoint = Vector2.new(0.5, 1)
 
-bottomMarker.Position =
-	UDim2.new(
-		0.5,
-		0,
-		0,
-		153
-	)
+bottomMarker.Position = UDim2.new(0.5, 0, 0, 153)
 
-bottomMarker.Text =
-	"▲"
+bottomMarker.Text = "▲"
 
-bottomMarker.Parent =
-	rollPanel
+bottomMarker.Parent = rollPanel
 
 --==================================================
 -- VERTICAL REEL VIEWPORT
 --==================================================
 
-local reelViewport =
-	Instance.new(
-		"Frame"
-	)
+local reelViewport = Instance.new("Frame")
 
-reelViewport.AnchorPoint =
-	Vector2.new(
-		0.5,
-		0
-	)
+reelViewport.AnchorPoint = Vector2.new(0.5, 0)
 
-reelViewport.Position =
-	UDim2.new(
-		0.5,
-		0,
-		0,
-		45
-	)
+reelViewport.Position = UDim2.new(0.5, 0, 0, 45)
 
-reelViewport.Size =
-	UDim2.fromOffset(
-		310,
-		150
-	)
+reelViewport.Size = UDim2.fromOffset(310, 150)
 
-reelViewport.BackgroundTransparency =
-	1
+reelViewport.BackgroundTransparency = 1
 
-reelViewport.ClipsDescendants =
-	true
+reelViewport.ClipsDescendants = true
 
-reelViewport.ZIndex =
-	3
+reelViewport.ZIndex = 3
 
-reelViewport.Parent =
-	rollPanel
+reelViewport.Parent = rollPanel
 
-local reelStrip =
-	Instance.new(
-		"Frame"
-	)
+local reelStrip = Instance.new("Frame")
 
-reelStrip.BackgroundTransparency =
-	1
+reelStrip.BackgroundTransparency = 1
 
-reelStrip.Size =
-	UDim2.fromOffset(
-		310,
-		1
-	)
+reelStrip.Size = UDim2.fromOffset(310, 1)
 
-reelStrip.Position =
-	UDim2.fromOffset(
-		0,
-		0
-	)
+reelStrip.Position = UDim2.fromOffset(0, 0)
 
-reelStrip.ZIndex =
-	3
+reelStrip.ZIndex = 3
 
-reelStrip.Parent =
-	reelViewport
+reelStrip.Parent = reelViewport
 
 --==================================================
 -- TOP / BOTTOM FADES
 --==================================================
 
-local topFade =
-	Instance.new(
-		"Frame"
-	)
+local topFade = Instance.new("Frame")
 
-topFade.Position =
-	UDim2.fromOffset(
-		30,
-		46
-	)
+topFade.Position = UDim2.fromOffset(30, 46)
 
-topFade.Size =
-	UDim2.new(
-		1,
-		-60,
-		0,
-		38
-	)
+topFade.Size = UDim2.new(1, -60, 0, 38)
 
-topFade.BackgroundColor3 =
-	Color3.fromRGB(
-		17,
-		14,
-		11
-	)
+topFade.BackgroundColor3 = Color3.fromRGB(17, 14, 11)
 
-topFade.BackgroundTransparency =
-	0.38
+topFade.BackgroundTransparency = 0.38
 
-topFade.BorderSizePixel =
-	0
+topFade.BorderSizePixel = 0
 
-topFade.ZIndex =
-	7
+topFade.ZIndex = 7
 
-topFade.Parent =
-	rollPanel
+topFade.Parent = rollPanel
 
 topFade.Visible = false
 
-local topFadeGradient =
-	Instance.new(
-		"UIGradient"
-	)
+local topFadeGradient = Instance.new("UIGradient")
 
-topFadeGradient.Rotation =
-	90
+topFadeGradient.Rotation = 90
 
-topFadeGradient.Transparency =
-	NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.05),
-		NumberSequenceKeypoint.new(1, 1),
-	})
+topFadeGradient.Transparency = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 0.05),
+	NumberSequenceKeypoint.new(1, 1),
+})
 
-topFadeGradient.Parent =
-	topFade
+topFadeGradient.Parent = topFade
 
-local bottomFade =
-	topFade:Clone()
+local bottomFade = topFade:Clone()
 
-bottomFade.AnchorPoint =
-	Vector2.new(
-		0,
-		1
-	)
+bottomFade.AnchorPoint = Vector2.new(0, 1)
 
-bottomFade.Position =
-	UDim2.new(
-		0,
-		30,
-		0,
-		212
-	)
+bottomFade.Position = UDim2.new(0, 30, 0, 212)
 
-bottomFade.Parent =
-	rollPanel
+bottomFade.Parent = rollPanel
 
 bottomFade.Visible = false
 
-local bottomFadeGradient =
-	bottomFade:FindFirstChildOfClass(
-		"UIGradient"
-	)
+local bottomFadeGradient = bottomFade:FindFirstChildOfClass("UIGradient")
 
 if bottomFadeGradient then
-
-	bottomFadeGradient.Transparency =
-		NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(1, 0.05),
-		})
-
+	bottomFadeGradient.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(1, 0.05),
+	})
 end
 
 --==================================================
 -- TARGET CIRCLE
 --==================================================
 
-local indicator =
-	Instance.new(
-		"Part"
-	)
+local indicator = Instance.new("Part")
 
-indicator.Shape =
-	Enum.PartType.Cylinder
+indicator.Shape = Enum.PartType.Cylinder
 
-indicator.Size =
-	Vector3.new(
-		0.08,
-		3.2,
-		3.2
-	)
+indicator.Size = Vector3.new(0.08, 3.2, 3.2)
 
-indicator.Material =
-	Enum.Material.Neon
+indicator.Material = Enum.Material.Neon
 
-indicator.Color =
-	Color3.fromRGB(
-		255,
-		230,
-		75
-	)
+indicator.Color = Color3.fromRGB(255, 230, 75)
 
-indicator.Transparency =
-	0.45
+indicator.Transparency = 0.45
 
-indicator.Anchored =
-	true
+indicator.Anchored = true
 
-indicator.CanCollide =
-	false
+indicator.CanCollide = false
 
-indicator.CanTouch =
-	false
+indicator.CanTouch = false
 
-indicator.CanQuery =
-	false
+indicator.CanQuery = false
 
-indicator.CFrame =
-	CFrame.new(
-		0,
-		-1000,
-		0
-	)
+indicator.CFrame = CFrame.new(0, -1000, 0)
 
-indicator.Parent =
-	Workspace
+indicator.Parent = Workspace
 
-local function setIndicator(
-	position,
-	active
-)
-
+local function setIndicator(position, active)
 	if not position then
-
-		indicator.CFrame =
-			CFrame.new(
-				0,
-				-1000,
-				0
-			)
+		indicator.CFrame = CFrame.new(0, -1000, 0)
 
 		return
-
 	end
 
-	indicator.Color =
-		if active
-		then
-			Color3.fromRGB(
-				255,
-				167,
-				43
-			)
-		else
-			Color3.fromRGB(
-				255,
-				231,
-				73
-			)
+	indicator.Color = if active then Color3.fromRGB(255, 167, 43) else Color3.fromRGB(255, 231, 73)
 
-	indicator.CFrame =
-		CFrame.new(
-			position
-			+
-			Vector3.new(
-				0,
-				0.06,
-				0
-			)
-		)
-		*
-		CFrame.Angles(
-			0,
-			0,
-			math.rad(
-				90
-			)
-		)
-
+	indicator.CFrame = CFrame.new(position + Vector3.new(0, 0.06, 0)) * CFrame.Angles(0, 0, math.rad(90))
 end
 
 --==================================================
 -- TARGET RAY
 --==================================================
 
-local rayParams =
-	RaycastParams.new()
+local rayParams = RaycastParams.new()
 
-rayParams.FilterType =
-	Enum.RaycastFilterType.Include
+rayParams.FilterType = Enum.RaycastFilterType.Include
 
 rayParams.FilterDescendantsInstances = {
 	ground,
 }
 
 local function getMouseGround()
-
-	camera =
-		Workspace.CurrentCamera
+	camera = Workspace.CurrentCamera
 
 	if not camera then
-
 		return nil
-
 	end
 
-	local mouse =
-		UserInputService:GetMouseLocation()
+	local mouse = UserInputService:GetMouseLocation()
 
-	local ray =
-		camera:ViewportPointToRay(
-			mouse.X,
-			mouse.Y
-		)
+	local ray = camera:ViewportPointToRay(mouse.X, mouse.Y)
 
-	local hit =
-		Workspace:Raycast(
-			ray.Origin,
-			ray.Direction
-				*
-				1000,
-			rayParams
-		)
+	local hit = Workspace:Raycast(ray.Origin, ray.Direction * 1000, rayParams)
 
 	if hit then
-
-		return
-			hit.Position
-
+		return hit.Position
 	end
 
 	return nil
-
 end
 
-local function horizontalDistance(
-	a,
-	b
-)
-
-	return
-		Vector3.new(
-			a.X - b.X,
-			0,
-			a.Z - b.Z
-		).Magnitude
-
+local function horizontalDistance(a, b)
+	return Vector3.new(a.X - b.X, 0, a.Z - b.Z).Magnitude
 end
 
 local function getValidTarget()
-
 	if not getEquippedHoe() then
-
 		return nil
-
 	end
 
-	local root =
-		getRoot()
+	local root = getRoot()
 
 	if not root then
-
 		return nil
-
 	end
 
-	local position =
-		getMouseGround()
+	local position = getMouseGround()
 
 	if not position then
-
 		return nil
-
 	end
 
-	if
-		horizontalDistance(
-			root.Position,
-			position
-		)
-		>
-		MAX_PLAYER_RADIUS
-	then
-
+	if horizontalDistance(root.Position, position) > MAX_PLAYER_RADIUS then
 		return nil
-
 	end
 
 	return position
-
 end
 
 --==================================================
 -- FX HOLDER
 --==================================================
 
-local function makeFXHolder(
-	position
-)
+local function makeFXHolder(position)
+	local holder = Instance.new("Part")
 
-	local holder =
-		Instance.new(
-			"Part"
-		)
+	holder.Size = Vector3.new(0.1, 0.1, 0.1)
 
-	holder.Size =
-		Vector3.new(
-			0.1,
-			0.1,
-			0.1
-		)
+	holder.Transparency = 1
 
-	holder.Transparency =
-		1
+	holder.Anchored = true
 
-	holder.Anchored =
-		true
+	holder.CanCollide = false
 
-	holder.CanCollide =
-		false
+	holder.CanTouch = false
 
-	holder.CanTouch =
-		false
+	holder.CanQuery = false
 
-	holder.CanQuery =
-		false
+	holder.Position = position + Vector3.new(0, 0.1, 0)
 
-	holder.Position =
-		position
-		+
-		Vector3.new(
-			0,
-			0.1,
-			0
-		)
+	holder.Parent = Workspace
 
-	holder.Parent =
-		Workspace
-
-	Debris:AddItem(
-		holder,
-		2
-	)
+	Debris:AddItem(holder, 2)
 
 	return holder
-
 end
 
 --==================================================
 -- REALISTIC IMPACT
 --==================================================
 
-local function playImpact(
-	position,
-	hitNumber
-)
+local function playImpact(position, hitNumber)
+	local settings = HIT_SETTINGS[hitNumber]
 
-	local settings =
-		HIT_SETTINGS[
-			hitNumber
-		]
-
-	if
-		not position
-		or
-		not settings
-	then
-
+	if not position or not settings then
 		return
-
 	end
 
-	local holder =
-		makeFXHolder(
-			position
-		)
+	local holder = makeFXHolder(position)
 
-	local sound =
-		Instance.new(
-			"Sound"
-		)
+	local sound = Instance.new("Sound")
 
-	sound.SoundId =
-		HOE_IMPACT_SOUND
+	sound.SoundId = HOE_IMPACT_SOUND
 
-	sound.Volume =
-		settings.Volume
+	sound.Volume = settings.Volume
 
 	-- Tiny random difference means the exact same
 	-- sound doesn't repeat identically.
 
-	sound.PlaybackSpeed =
-		settings.Speed
-		+
-		math.random(
-			-3,
-			3
-		)
-		/
-		100
+	sound.PlaybackSpeed = settings.Speed + math.random(-3, 3) / 100
 
-	sound.RollOffMinDistance =
-		3
+	sound.RollOffMinDistance = 3
 
-	sound.RollOffMaxDistance =
-		35
+	sound.RollOffMaxDistance = 35
 
-	sound.Parent =
-		holder
+	sound.Parent = holder
 
 	sound:Play()
-
 end
 
 --==================================================
@@ -1620,193 +854,73 @@ end
 -- ~20% stronger than previous version.
 --==================================================
 
-local function emitDirt(
-	position,
-	baseAmount,
-	big
-)
-
+local function emitDirt(position, baseAmount, big)
 	if not position then
-
 		return
-
 	end
 
-	local amount =
-		math.floor(
-			baseAmount
-			*
-			DIRT_PARTICLE_MULTIPLIER
-		)
+	local amount = math.floor(baseAmount * DIRT_PARTICLE_MULTIPLIER)
 
-	local holder =
-		makeFXHolder(
-			position
-		)
+	local holder = makeFXHolder(position)
 
-	local emitter =
-		Instance.new(
-			"ParticleEmitter"
-		)
+	local emitter = Instance.new("ParticleEmitter")
 
-	emitter.Texture =
-		"rbxasset://textures/particles/smoke_main.dds"
+	emitter.Texture = "rbxasset://textures/particles/smoke_main.dds"
 
-	emitter.Rate =
-		0
+	emitter.Rate = 0
 
-	emitter.Color =
-		ColorSequence.new({
+	emitter.Color = ColorSequence.new({
 
-			ColorSequenceKeypoint.new(
-				0,
-				Color3.fromRGB(
-					79,
-					53,
-					31
-				)
-			),
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(79, 53, 31)),
 
-			ColorSequenceKeypoint.new(
-				0.55,
-				Color3.fromRGB(
-					125,
-					85,
-					48
-				)
-			),
+		ColorSequenceKeypoint.new(0.55, Color3.fromRGB(125, 85, 48)),
 
-			ColorSequenceKeypoint.new(
-				1,
-				Color3.fromRGB(
-					169,
-					122,
-					75
-				)
-			),
-
-		})
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(169, 122, 75)),
+	})
 
 	--==================================================
 	-- 20% larger particle size
 	--==================================================
 
-	local startSize =
-		(
-			if big
-			then
-				0.7
-			else
-				0.46
-		)
-		*
-		DIRT_VISIBILITY
+	local startSize = (if big then 0.7 else 0.46) * DIRT_VISIBILITY
 
-	emitter.Size =
-		NumberSequence.new({
+	emitter.Size = NumberSequence.new({
 
-			NumberSequenceKeypoint.new(
-				0,
-				startSize
-			),
+		NumberSequenceKeypoint.new(0, startSize),
 
-			NumberSequenceKeypoint.new(
-				0.6,
-				startSize
-				*
-				0.65
-			),
+		NumberSequenceKeypoint.new(0.6, startSize * 0.65),
 
-			NumberSequenceKeypoint.new(
-				1,
-				0.05
-			),
-
-		})
+		NumberSequenceKeypoint.new(1, 0.05),
+	})
 
 	-- More opaque than before.
 
-	emitter.Transparency =
-		NumberSequence.new({
+	emitter.Transparency = NumberSequence.new({
 
-			NumberSequenceKeypoint.new(
-				0,
-				0.02
-			),
+		NumberSequenceKeypoint.new(0, 0.02),
 
-			NumberSequenceKeypoint.new(
-				0.6,
-				0.30
-			),
+		NumberSequenceKeypoint.new(0.6, 0.30),
 
-			NumberSequenceKeypoint.new(
-				1,
-				1
-			),
+		NumberSequenceKeypoint.new(1, 1),
+	})
 
-		})
+	emitter.Lifetime = if big then NumberRange.new(0.5, 0.95) else NumberRange.new(0.35, 0.7)
 
-	emitter.Lifetime =
-		if big
-		then
-			NumberRange.new(
-				0.5,
-				0.95
-			)
-		else
-			NumberRange.new(
-				0.35,
-				0.7
-			)
+	emitter.Speed = if big then NumberRange.new(5, 10) else NumberRange.new(3.5, 7.5)
 
-	emitter.Speed =
-		if big
-		then
-			NumberRange.new(
-				5,
-				10
-			)
-		else
-			NumberRange.new(
-				3.5,
-				7.5
-			)
+	emitter.Acceleration = Vector3.new(0, -15, 0)
 
-	emitter.Acceleration =
-		Vector3.new(
-			0,
-			-15,
-			0
-		)
+	emitter.Drag = 2.5
 
-	emitter.Drag =
-		2.5
+	emitter.SpreadAngle = Vector2.new(85, 85)
 
-	emitter.SpreadAngle =
-		Vector2.new(
-			85,
-			85
-		)
+	emitter.Rotation = NumberRange.new(0, 360)
 
-	emitter.Rotation =
-		NumberRange.new(
-			0,
-			360
-		)
+	emitter.RotSpeed = NumberRange.new(-130, 130)
 
-	emitter.RotSpeed =
-		NumberRange.new(
-			-130,
-			130
-		)
+	emitter.Parent = holder
 
-	emitter.Parent =
-		holder
-
-	emitter:Emit(
-		amount
-	)
-
+	emitter:Emit(amount)
 end
 
 --==================================================
@@ -1814,597 +928,144 @@ end
 --==================================================
 
 local function stopGripTween()
-
 	if gripTween then
+		pcall(function()
+			gripTween:Cancel()
+		end)
 
-		pcall(
-			function()
-
-				gripTween:Cancel()
-
-			end
-		)
-
-		gripTween =
-			nil
-
+		gripTween = nil
 	end
-
 end
 
 local function restoreHoe()
-
 	stopGripTween()
 
-	if
-		animatedHoe
-		and
-		animatedHoe.Parent
-		and
-		baseGrip
-	then
-
+	if animatedHoe and animatedHoe.Parent and baseGrip then
 		gripTween =
-			TweenService:Create(
-
-				animatedHoe,
-
-				TweenInfo.new(
-					0.14,
-					Enum.EasingStyle.Quad,
-					Enum.EasingDirection.Out
-				),
-
-				{
-					Grip =
-						baseGrip,
-				}
-
-			)
+			TweenService:Create(animatedHoe, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Grip = baseGrip,
+			})
 
 		gripTween:Play()
-
-	end
-
-end
-
-local function loadHoeAnimation()
-	local character = getCharacter()
-	if not character then
-		return nil
-	end
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid then
-		return nil
-	end
-
-	if hoeAnimationTrack and hoeAnimationHumanoid == humanoid then
-		return hoeAnimationTrack
-	end
-
-	if hoeAnimationTrack then
-		pcall(function()
-			hoeAnimationTrack:Stop(0.05)
-			hoeAnimationTrack:Destroy()
-		end)
-	end
-
-	local animator = humanoid:FindFirstChildOfClass("Animator")
-	if not animator then
-		animator = Instance.new("Animator")
-		animator.Parent = humanoid
-	end
-
-	local animation = Instance.new("Animation")
-	animation.Name = "PotatiumHoeSwing"
-	animation.AnimationId = HOE_ANIMATION_ID
-
-	local ok, track = pcall(function()
-		return animator:LoadAnimation(animation)
-	end)
-	animation:Destroy()
-
-	if not ok or not track then
-		warn("[ForagingDigClient] Could not load hoe animation.")
-		return nil
-	end
-
-	hoeAnimationTrack = track
-	hoeAnimationHumanoid = humanoid
-	hoeAnimationTrack.Priority = Enum.AnimationPriority.Action
-	hoeAnimationTrack.Looped = false
-	return hoeAnimationTrack
-end
-
-local function playHoeCharacterAnimation()
-	local track = loadHoeAnimation()
-	if not track then
-		return
-	end
-
-	if track.IsPlaying then
-		track:Stop(0.03)
-	end
-	track.TimePosition = 0
-	track:Play(0.04, 1, 1)
-end
-
-local function stopHoeCharacterAnimation()
-	if hoeAnimationTrack and hoeAnimationTrack.IsPlaying then
-		hoeAnimationTrack:Stop(0.08)
 	end
 end
 
-local function swingHoe(
-	index
-)
-
-	playHoeCharacterAnimation()
-
-	local hoe =
-		getEquippedHoe()
+local function swingHoe(index)
+	local hoe = getEquippedHoe()
 
 	if not hoe then
-
 		return
-
 	end
 
 	if animatedHoe ~= hoe then
+		animatedHoe = hoe
 
-		animatedHoe =
-			hoe
-
-		baseGrip =
-			hoe.Grip
-
+		baseGrip = hoe.Grip
 	end
 
 	if not baseGrip then
-
 		return
-
 	end
 
 	stopGripTween()
 
-	local power =
-		1
-		+
-		(
-			index
-			*
-			0.05
-		)
+	local power = 1 + (index * 0.05)
 
-	local raised =
-		baseGrip
-		*
-		CFrame.Angles(
-			math.rad(
-				-25
-				*
-				power
-			),
-			0,
-			math.rad(
-				-8
-			)
-		)
+	local raised = baseGrip * CFrame.Angles(math.rad(-25 * power), 0, math.rad(-8))
 
-	local hit =
-		baseGrip
-		*
-		CFrame.Angles(
-			math.rad(
-				33
-				*
-				power
-			),
-			0,
-			math.rad(
-				7
-			)
-		)
+	local hit = baseGrip * CFrame.Angles(math.rad(33 * power), 0, math.rad(7))
 
-	local raiseTween =
-		TweenService:Create(
-
-			hoe,
-
-			TweenInfo.new(
-				0.13,
-				Enum.EasingStyle.Quad,
-				Enum.EasingDirection.Out
-			),
-
-			{
-				Grip =
-					raised,
-			}
-
-		)
+	local raiseTween = TweenService:Create(hoe, TweenInfo.new(0.13, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Grip = raised,
+	})
 
 	raiseTween:Play()
 
-	raiseTween.Completed:Once(
-		function()
+	raiseTween.Completed:Once(function()
+		if not digging or not hoe.Parent then
+			restoreHoe()
 
-			if
-				not digging
-				or
-				not hoe.Parent
-			then
-
-				restoreHoe()
-
-				return
-
-			end
-
-			gripTween =
-				TweenService:Create(
-
-					hoe,
-
-					TweenInfo.new(
-						0.10,
-						Enum.EasingStyle.Quad,
-						Enum.EasingDirection.In
-					),
-
-					{
-						Grip =
-							hit,
-					}
-
-				)
-
-			gripTween:Play()
-
-			gripTween.Completed:Once(
-				restoreHoe
-			)
-
+			return
 		end
-	)
 
+		gripTween = TweenService:Create(hoe, TweenInfo.new(0.10, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Grip = hit,
+		})
+
+		gripTween:Play()
+
+		gripTween.Completed:Once(restoreHoe)
+	end)
 end
 
 --==================================================
 -- HIT
 --==================================================
 
-local function doHoeHit(
-	index
-)
-
+local function doHoeHit(index)
 	if not currentDigSpot then
-
 		return
-
 	end
 
-	swingHoe(
-		index
-	)
+	swingHoe(index)
 
-	playImpact(
-		currentDigSpot,
-		index
-	)
+	playImpact(currentDigSpot, index)
 
-	emitDirt(
-		currentDigSpot,
-		HIT_SETTINGS[
-			index
-		].Dirt,
-		false
-	)
-
+	emitDirt(currentDigSpot, HIT_SETTINGS[index].Dirt, false)
 end
 
 --==================================================
 -- RESULT DISPLAY
 --==================================================
 
-local resultId =
-	0
+local resultId = 0
 
 local function clearReelLabels()
-
-	for _, object in ipairs(
-		reelViewport:GetChildren()
-	) do
-
+	for _, object in ipairs(reelViewport:GetChildren()) do
 		if object:IsA("TextLabel") then
 			object:Destroy()
 		end
-
 	end
-
 end
 
-local function showResult(
-	text,
-	color
-)
+local function showResult(text, color)
+	resultId += 1
 
-	resultId +=
-		1
+	local id = resultId
 
-	local id =
-		resultId
+	rollPanel.Visible = false
 
-	rollPanel.Visible =
-		false
+	result.Text = text
 
-	result.Text =
-		text
+	result.TextColor3 = color or Color3.new(1, 1, 1)
 
-	result.TextColor3 =
-		color
-		or
-		Color3.new(
-			1,
-			1,
-			1
-		)
+	result.Visible = true
 
-	result.Visible =
-		true
-
-	task.delay(
-		1.8,
-
-		function()
-
-			if id == resultId then
-
-				result.Visible =
-					false
-
-			end
-
+	task.delay(1.8, function()
+		if id == resultId then
+			result.Visible = false
 		end
-	)
-
-end
-
---==================================================
--- PICKUP MESSAGE
---
--- A short reward message stays above the hotbar so a
--- completed dig is visible even while the inventory is
--- closed.
---==================================================
-
-local pickupToast =
-	Instance.new(
-		"TextLabel"
-	)
-
-pickupToast.Name =
-	"PotatoPickupToast"
-
-pickupToast.AnchorPoint =
-	Vector2.new(
-		0.5,
-		1
-	)
-
-pickupToast.Position =
-	UDim2.new(
-		0.5,
-		0,
-		1,
-		-150
-	)
-
-pickupToast.Size =
-	UDim2.fromOffset(
-		320,
-		34
-	)
-
-pickupToast.BackgroundColor3 =
-	Color3.fromRGB(
-		20,
-		25,
-		20
-	)
-
-pickupToast.BackgroundTransparency =
-	0.16
-
-pickupToast.BorderSizePixel =
-	0
-
-pickupToast.Font =
-	Enum.Font.GothamBold
-
-pickupToast.TextSize =
-	16
-
-pickupToast.TextTransparency =
-	0
-
-pickupToast.Visible =
-	false
-
-pickupToast.Parent =
-	gui
-
-local pickupCorner =
-	Instance.new(
-		"UICorner"
-	)
-
-pickupCorner.CornerRadius =
-	UDim.new(
-		0,
-		9
-	)
-
-pickupCorner.Parent =
-	pickupToast
-
-local pickupStroke =
-	Instance.new(
-		"UIStroke"
-	)
-
-pickupStroke.Thickness =
-	1.5
-
-pickupStroke.Parent =
-	pickupToast
-
-local PICKUP_RARITY_COLORS = {
-	Common = Color3.fromRGB(190, 150, 92),
-	Rare = Color3.fromRGB(72, 194, 84),
-	Epic = Color3.fromRGB(68, 142, 238),
-	Exotic = Color3.fromRGB(168, 77, 224),
-	Legendary = Color3.fromRGB(255, 220, 54),
-	Super = Color3.fromRGB(255, 205, 35),
-	Rainbow = Color3.fromRGB(255, 255, 255),
-}
-
-local pickupId =
-	0
-
-local function showPickupToast(
-	potatoName,
-	rarity
-)
-
-	pickupId +=
-		1
-
-	local id =
-		pickupId
-
-	local color =
-		PICKUP_RARITY_COLORS[
-			tostring(
-				rarity
-				or
-				"Common"
-			)
-		]
-		or
-		PICKUP_RARITY_COLORS.Common
-
-	pickupToast.Text =
-		"+ "
-		..
-		tostring(
-			potatoName
-			or
-			"Potato"
-		)
-
-	pickupToast.TextColor3 =
-		color
-
-	pickupStroke.Color =
-		color
-
-	pickupToast.BackgroundTransparency =
-		0.16
-
-	pickupToast.TextTransparency =
-		0
-
-	pickupStroke.Transparency =
-		0.12
-
-	pickupToast.Visible =
-		true
-
-	task.delay(
-		2.2,
-
-		function()
-
-			if id ~= pickupId then
-
-				return
-
-			end
-
-			local fade =
-				TweenService:Create(
-					pickupToast,
-					TweenInfo.new(
-						0.25
-					),
-					{
-						BackgroundTransparency = 1,
-						TextTransparency = 1,
-					}
-				)
-
-			fade:Play()
-
-			task.delay(
-				0.3,
-
-				function()
-
-					if id == pickupId then
-
-						pickupToast.Visible =
-							false
-
-					end
-
-				end
-			)
-
-		end
-	)
-
+	end)
 end
 
 --==================================================
 -- ROLL SOUND
 --==================================================
 
-local function playRollSound(
-	playbackSpeed,
-	volume
-)
+local function playRollSound(playbackSpeed, volume)
+	local sound = Instance.new("Sound")
 
-	local sound =
-		Instance.new(
-			"Sound"
-		)
+	sound.SoundId = ROLL_TICK_SOUND
 
-	sound.SoundId =
-		ROLL_TICK_SOUND
+	sound.Volume = volume or 0.35
 
-	sound.Volume =
-		volume
-		or
-		0.35
+	sound.PlaybackSpeed = playbackSpeed or 1
 
-	sound.PlaybackSpeed =
-		playbackSpeed
-		or
-		1
-
-	sound.Parent =
-		playerGui
+	sound.Parent = playerGui
 
 	sound:Play()
 
-	Debris:AddItem(
-		sound,
-		2
-	)
-
+	Debris:AddItem(sound, 2)
 end
 
 --==================================================
@@ -2424,21 +1085,8 @@ local POTATO_BAND_COLORS = {
 	["Sunkissed Potato"] = Color3.fromRGB(255, 179, 54),
 }
 
-local function getBandColor(
-	potatoName
-)
-
-	return
-		POTATO_BAND_COLORS[
-			potatoName
-		]
-		or
-		Color3.fromRGB(
-			90,
-			120,
-			90
-		)
-
+local function getBandColor(potatoName)
+	return POTATO_BAND_COLORS[potatoName] or Color3.fromRGB(90, 120, 90)
 end
 
 --==================================================
@@ -2449,38 +1097,24 @@ end
 -- Names enter from above and move downward.
 --==================================================
 
-local function showPotatoRoll(
-	finalName
-)
-
-	finalName =
-		tostring(
-			finalName
-			or
-			"Basic Potato"
-		)
+local function showPotatoRoll(finalName)
+	finalName = tostring(finalName or "Basic Potato")
 
 	resultId += 1
 
-	local id =
-		resultId
+	local id = resultId
 
-	result.Visible =
-		false
+	result.Visible = false
 
 	clearReelLabels()
 
-	rollPanel.Visible =
-		true
+	rollPanel.Visible = true
 
-	rollStroke.Transparency =
-		0.18
+	rollStroke.Transparency = 0.18
 
-	centerSlot.BackgroundTransparency =
-		0.84
+	centerSlot.BackgroundTransparency = 0.84
 
-	centerStroke.Transparency =
-		0.22
+	centerStroke.Transparency = 0.22
 
 	--==================================================
 	-- TRUE VERTICAL REEL
@@ -2492,307 +1126,161 @@ local function showPotatoRoll(
 	-- previous name remains visible below it.
 	--==================================================
 
-	reelStrip.Visible =
-		true
+	reelStrip.Visible = true
 
-	local spinCount =
-		ROLL_STEPS
+	local spinCount = ROLL_STEPS
 
-	local finalIndex =
-		spinCount + 1
+	local finalIndex = spinCount + 1
 
-	local extraAbove =
-		1
+	local extraAbove = 1
 
-	local totalItems =
-		finalIndex + extraAbove
+	local totalItems = finalIndex + extraAbove
 
 	local names = {}
 	local previousName = nil
 
 	for index = 1, totalItems do
-
 		local name
 
 		if index == finalIndex then
-
 			name = finalName
-
 		else
-
 			repeat
+				name = MEADOW_POTATO_NAMES[math.random(1, #MEADOW_POTATO_NAMES)]
 
-				name =
-					MEADOW_POTATO_NAMES[
-						math.random(
-							1,
-							#MEADOW_POTATO_NAMES
-						)
-					]
-
-			until
-				name ~= previousName
-				or
-				#MEADOW_POTATO_NAMES <= 1
-
+			until name ~= previousName or #MEADOW_POTATO_NAMES <= 1
 		end
 
 		previousName = name
 		names[index] = name
-
 	end
 
-	local viewportHeight =
-		reelViewport.AbsoluteSize.Y
+	local viewportHeight = reelViewport.AbsoluteSize.Y
 
 	if viewportHeight <= 0 then
 		viewportHeight = 150
 	end
 
-	local viewportWidth =
-		reelViewport.AbsoluteSize.X
+	local viewportWidth = reelViewport.AbsoluteSize.X
 
 	if viewportWidth <= 0 then
 		viewportWidth = 310
 	end
 
-	local rowHeight =
-		46
+	local rowHeight = 46
 
-	local rowGap =
-		2
+	local rowGap = 2
 
-	local rowStep =
-		rowHeight + rowGap
+	local rowStep = rowHeight + rowGap
 
-	local labelWidth =
-		286
+	local labelWidth = 286
 
-	local fixedX =
-		(viewportWidth - labelWidth) / 2
+	local fixedX = (viewportWidth - labelWidth) / 2
 
-	local centerY =
-		viewportHeight / 2
+	local centerY = viewportHeight / 2
 
 	-- Higher indexes are physically ABOVE lower indexes.
 	-- Therefore moving to a higher index moves the strip DOWN.
 	local function labelY(index)
-
-		return
-			(totalItems - index)
-			*
-			rowStep
-
+		return (totalItems - index) * rowStep
 	end
 
-	reelStrip.Size =
-		UDim2.fromOffset(
-			viewportWidth,
-			totalItems * rowStep
-		)
+	reelStrip.Size = UDim2.fromOffset(viewportWidth, totalItems * rowStep)
 
 	local labels = {}
 
 	for index, potatoName in ipairs(names) do
+		local bandColor = getBandColor(potatoName)
 
-		local bandColor =
-			getBandColor(
-				potatoName
-			)
+		local label = Instance.new("TextLabel")
 
-		local label =
-			Instance.new(
-				"TextLabel"
-			)
+		label.Name = "VerticalRollName_" .. index
 
-		label.Name =
-			"VerticalRollName_"
-			..
-			index
+		label.Position = UDim2.fromOffset(fixedX, labelY(index))
 
-		label.Position =
-			UDim2.fromOffset(
-				fixedX,
-				labelY(index)
-			)
+		label.Size = UDim2.fromOffset(labelWidth, rowHeight)
 
-		label.Size =
-			UDim2.fromOffset(
-				labelWidth,
-				rowHeight
-			)
+		label.BackgroundColor3 = bandColor
 
-		label.BackgroundColor3 =
-			bandColor
+		label.BackgroundTransparency = 0.88
 
-		label.BackgroundTransparency =
-			0.88
+		label.BorderSizePixel = 0
 
-		label.BorderSizePixel =
-			0
+		label.Text = string.upper(potatoName)
 
-		label.Text =
-			string.upper(
-				potatoName
-			)
+		label.TextColor3 = Color3.fromRGB(235, 235, 232)
 
-		label.TextColor3 =
-			Color3.fromRGB(
-				235,
-				235,
-				232
-			)
+		label.TextTransparency = 0.40
 
-		label.TextTransparency =
-			0.40
+		label.Font = Enum.Font.GothamBold
 
-		label.Font =
-			Enum.Font.GothamBold
+		label.TextSize = 13
 
-		label.TextSize =
-			13
+		label.TextWrapped = false
 
-		label.TextWrapped =
-			false
+		label.ZIndex = 5
 
-		label.ZIndex =
-			5
+		label.Parent = reelStrip
 
-		label.Parent =
-			reelStrip
+		local labelCorner = Instance.new("UICorner")
 
-		local labelCorner =
-			Instance.new(
-				"UICorner"
-			)
+		labelCorner.CornerRadius = UDim.new(0, 8)
 
-		labelCorner.CornerRadius =
-			UDim.new(
-				0,
-				8
-			)
+		labelCorner.Parent = label
 
-		labelCorner.Parent =
-			label
-
-		labels[index] =
-			label
-
+		labels[index] = label
 	end
 
-	local function styleRows(
-		selectedIndex,
-		isFinal
-	)
+	local function styleRows(selectedIndex, isFinal)
+		local selectedColor = getBandColor(names[selectedIndex])
 
-		local selectedColor =
-			getBandColor(
-				names[selectedIndex]
-			)
+		centerSlot.BackgroundColor3 = selectedColor
 
-		centerSlot.BackgroundColor3 =
-			selectedColor
-
-		centerStroke.Color =
-			selectedColor
+		centerStroke.Color = selectedColor
 
 		for labelIndex, label in ipairs(labels) do
-
-			local distance =
-				math.abs(
-					labelIndex
-					-
-					selectedIndex
-				)
+			local distance = math.abs(labelIndex - selectedIndex)
 
 			if labelIndex == selectedIndex then
+				label.TextColor3 = Color3.fromRGB(255, 255, 255)
 
-				label.TextColor3 =
-					Color3.fromRGB(
-						255,
-						255,
-						255
-					)
+				label.TextTransparency = 0
 
-				label.TextTransparency =
-					0
+				label.TextSize = isFinal and 20 or 17
 
-				label.TextSize =
-					isFinal
-					and 20
-					or 17
-
-				label.BackgroundTransparency =
-					isFinal
-					and 0.38
-					or 0.62
-
+				label.BackgroundTransparency = isFinal and 0.38 or 0.62
 			elseif distance == 1 then
+				label.TextTransparency = 0.25
 
-				label.TextTransparency =
-					0.25
+				label.TextSize = 14
 
-				label.TextSize =
-					14
-
-				label.BackgroundTransparency =
-					0.82
-
+				label.BackgroundTransparency = 0.82
 			elseif distance == 2 then
+				label.TextTransparency = 0.48
 
-				label.TextTransparency =
-					0.48
+				label.TextSize = 13
 
-				label.TextSize =
-					13
-
-				label.BackgroundTransparency =
-					0.90
-
+				label.BackgroundTransparency = 0.90
 			else
+				label.TextTransparency = 0.70
 
-				label.TextTransparency =
-					0.70
+				label.TextSize = 12
 
-				label.TextSize =
-					12
-
-				label.BackgroundTransparency =
-					0.94
-
+				label.BackgroundTransparency = 0.94
 			end
-
 		end
-
 	end
 
 	-- Start with potato #1 in the exact middle.
 	local function targetStripY(index)
-
-		return
-			centerY
-			-
-			labelY(index)
-			-
-			rowHeight / 2
-
+		return centerY - labelY(index) - rowHeight / 2
 	end
 
-	reelStrip.Position =
-		UDim2.fromOffset(
-			0,
-			targetStripY(1)
-		)
+	reelStrip.Position = UDim2.fromOffset(0, targetStripY(1))
 
-	styleRows(
-		1,
-		false
-	)
+	styleRows(1, false)
 
-	playRollSound(
-		1.45,
-		0.24
-	)
+	playRollSound(1.45, 0.24)
 
 	--==================================================
 	-- SPIN TOP -> BOTTOM
@@ -2802,121 +1290,61 @@ local function showPotatoRoll(
 	--==================================================
 
 	for step = 2, finalIndex do
-
 		if id ~= resultId then
-
-			rollPanel.Visible =
-				false
+			rollPanel.Visible = false
 
 			return
-
 		end
 
-		local progressValue =
-			(step - 2)
-			/
-			math.max(
-				1,
-				finalIndex - 2
-			)
+		local progressValue = (step - 2) / math.max(1, finalIndex - 2)
 
-		local duration =
-			ROLL_START_DELAY
-			+
-			(
-				ROLL_END_DELAY
-				-
-				ROLL_START_DELAY
-			)
-			*
-			(progressValue * progressValue)
+		local duration = ROLL_START_DELAY + (ROLL_END_DELAY - ROLL_START_DELAY) * (progressValue * progressValue)
 
-		local isFinal =
-			step == finalIndex
+		local isFinal = step == finalIndex
 
-		local tween =
-			TweenService:Create(
-				reelStrip,
-				TweenInfo.new(
-					duration,
-					isFinal
-					and Enum.EasingStyle.Quart
-					or Enum.EasingStyle.Linear,
-					isFinal
-					and Enum.EasingDirection.Out
-					or Enum.EasingDirection.InOut
-				),
-				{
-					Position =
-						UDim2.fromOffset(
-							0,
-							targetStripY(step)
-						),
-				}
-			)
+		local tween = TweenService:Create(
+			reelStrip,
+			TweenInfo.new(
+				duration,
+				isFinal and Enum.EasingStyle.Quart or Enum.EasingStyle.Linear,
+				isFinal and Enum.EasingDirection.Out or Enum.EasingDirection.InOut
+			),
+			{
+				Position = UDim2.fromOffset(0, targetStripY(step)),
+			}
+		)
 
 		tween:Play()
 		tween.Completed:Wait()
 
 		if id ~= resultId then
-
-			rollPanel.Visible =
-				false
+			rollPanel.Visible = false
 
 			return
-
 		end
 
-		styleRows(
-			step,
-			isFinal
-		)
+		styleRows(step, isFinal)
 
 		if isFinal then
+			playRollSound(0.78, 0.72)
 
-			playRollSound(
-				0.78,
-				0.72
-			)
+			centerSlot.BackgroundTransparency = 0.58
 
-			centerSlot.BackgroundTransparency =
-				0.58
+			centerStroke.Transparency = 0.02
 
-			centerStroke.Transparency =
-				0.02
-
-			rollStroke.Transparency =
-				0.04
-
+			rollStroke.Transparency = 0.04
 		else
-
-			playRollSound(
-				1.15
-				+
-				(1 - progressValue) * 0.35,
-				0.28
-			)
-
+			playRollSound(1.15 + (1 - progressValue) * 0.35, 0.28)
 		end
-
 	end
 
 	-- Final reward is now exactly in the MIDDLE.
 	-- Final reward stays exactly in the middle, with one name above and one below.
-	task.delay(
-		FINAL_RESULT_HOLD_TIME,
-		function()
-
-			if id == resultId then
-
-				rollPanel.Visible =
-					false
-
-			end
-
+	task.delay(FINAL_RESULT_HOLD_TIME, function()
+		if id == resultId then
+			rollPanel.Visible = false
 		end
-	)
-
+	end)
 end
 
 --==================================================
@@ -2924,110 +1352,59 @@ end
 --==================================================
 
 local function resetSwingState()
-
 	for index = 1, #swingDone do
-
-		swingDone[
-			index
-		] =
-			false
-
+		swingDone[index] = false
 	end
 
-	windupDone =
-		false
-
+	windupDone = false
 end
 
 local function resetDig()
+	digging = false
 
-	stopHoeCharacterAnimation()
+	requestPending = false
 
-	digging =
-		false
+	currentDigId = nil
 
-	requestPending =
-		false
+	currentDigSpot = nil
 
-	currentDigId =
-		nil
+	currentDigTime = 0
 
-	currentDigSpot =
-		nil
+	currentEndServerTime = 0
 
-	currentDigTime =
-		0
+	currentStartPosition = nil
 
-	currentEndServerTime =
-		0
+	digPanel.Visible = false
 
-	currentStartPosition =
-		nil
-
-	digPanel.Visible =
-		false
-
-	progress.Size =
-		UDim2.fromScale(
-			0,
-			1
-		)
+	progress.Size = UDim2.fromScale(0, 1)
 
 	resetSwingState()
 
 	restoreHoe()
-
 end
 
 --==================================================
 -- CANCEL
 --==================================================
 
-local function cancelDig(
-	reason
-)
-
+local function cancelDig(reason)
 	if not digging then
-
 		return
-
 	end
 
-	local oldSpot =
-		currentDigSpot
+	local oldSpot = currentDigSpot
 
 	if currentDigId then
-
-		CancelDig:FireServer(
-			reason,
-			currentDigId
-		)
-
+		CancelDig:FireServer(reason, currentDigId)
 	end
 
 	if oldSpot then
-
-		emitDirt(
-			oldSpot,
-			4,
-			false
-		)
-
+		emitDirt(oldSpot, 4, false)
 	end
 
-	showResult(
-		"CANCELLED • "
-		..
-		reason,
-		Color3.fromRGB(
-			215,
-			150,
-			90
-		)
-	)
+	showResult("CANCELLED • " .. reason, Color3.fromRGB(215, 150, 90))
 
 	resetDig()
-
 end
 
 --==================================================
@@ -3035,703 +1412,332 @@ end
 --==================================================
 
 local function requestDig()
-
-	if
-		requestPending
-		or
-		digging
-	then
-
+	if requestPending or digging then
 		return
-
 	end
 
-	local position =
-		getValidTarget()
+	local position = getValidTarget()
 
 	if not position then
-
 		return
-
 	end
 
-	local root =
-		getRoot()
+	local root = getRoot()
 
 	if not root then
-
 		return
-
 	end
 
-	requestPending =
-		true
+	requestPending = true
 
-	currentDigSpot =
-		position
+	currentDigSpot = position
 
-	currentStartPosition =
-		root.Position
+	currentStartPosition = root.Position
 
-	requestSerial +=
-		1
+	requestSerial += 1
 
-	local serial =
-		requestSerial
+	local serial = requestSerial
 
-	digPanel.Visible =
-		true
+	digPanel.Visible = true
 
-	digText.Text =
-		"STARTING DIG..."
+	digText.Text = "STARTING DIG..."
 
-	RequestDig:FireServer(
-		position
-	)
+	RequestDig:FireServer(position)
 
-	task.delay(
-		REQUEST_TIMEOUT,
+	task.delay(REQUEST_TIMEOUT, function()
+		if requestPending and not digging and requestSerial == serial then
+			requestPending = false
 
-		function()
-
-			if
-				requestPending
-				and
-				not digging
-				and
-				requestSerial
-				==
-				serial
-			then
-
-				requestPending =
-					false
-
-				digPanel.Visible =
-					false
-
-			end
-
+			digPanel.Visible = false
 		end
-	)
-
+	end)
 end
 
 --==================================================
 -- SERVER START
 --==================================================
 
-DigStarted.OnClientEvent:Connect(
-	function(
-		digTime,
-		digId,
-		digSpot,
-		endServerTime
-	)
+DigStarted.OnClientEvent:Connect(function(digTime, digId, digSpot, endServerTime)
+	if not mouseHeld then
+		CancelDig:FireServer("Released click", digId)
 
-		if not mouseHeld then
+		requestPending = false
 
-			CancelDig:FireServer(
-				"Released click",
-				digId
-			)
+		digPanel.Visible = false
 
-			requestPending =
-				false
-
-			digPanel.Visible =
-				false
-
-			return
-
-		end
-
-		requestPending =
-			false
-
-		digging =
-			true
-
-		currentDigId =
-			digId
-
-		currentDigTime =
-			tonumber(
-				digTime
-			)
-			or
-			6
-
-		currentDigSpot =
-			digSpot
-
-		currentEndServerTime =
-			endServerTime
-
-		local root =
-			getRoot()
-
-		if root then
-
-			currentStartPosition =
-				root.Position
-
-		end
-
-		resetSwingState()
-
-		local hoe =
-			getEquippedHoe()
-
-		if hoe then
-
-			animatedHoe =
-				hoe
-
-			baseGrip =
-				hoe.Grip
-
-		end
-
+		return
 	end
-)
+
+	requestPending = false
+
+	digging = true
+
+	currentDigId = digId
+
+	currentDigTime = tonumber(digTime) or 6
+
+	currentDigSpot = digSpot
+
+	currentEndServerTime = endServerTime
+
+	local root = getRoot()
+
+	if root then
+		currentStartPosition = root.Position
+	end
+
+	resetSwingState()
+
+	local hoe = getEquippedHoe()
+
+	if hoe then
+		animatedHoe = hoe
+
+		baseGrip = hoe.Grip
+	end
+end)
 
 --==================================================
 -- SERVER CANCELLED
 --==================================================
 
-DigCancelled.OnClientEvent:Connect(
-	function(
-		reason,
-		digId
-	)
-
-		if
-			currentDigId
-			and
-			digId
-			and
-			currentDigId
-			~=
-			digId
-		then
-
-			return
-
-		end
-
-		showResult(
-			"CANCELLED • "
-			..
-			tostring(
-				reason
-			),
-			Color3.fromRGB(
-				215,
-				150,
-				90
-			)
-		)
-
-		resetDig()
-
+DigCancelled.OnClientEvent:Connect(function(reason, digId)
+	if currentDigId and digId and currentDigId ~= digId then
+		return
 	end
-)
+
+	showResult("CANCELLED • " .. tostring(reason), Color3.fromRGB(215, 150, 90))
+
+	resetDig()
+end)
 
 --==================================================
 -- FINISH
 --==================================================
 
-DigFinished.OnClientEvent:Connect(
-	function(
-		data
-	)
+DigFinished.OnClientEvent:Connect(function(data)
+	local spot = currentDigSpot
 
-		local spot =
-			currentDigSpot
+	if type(data) ~= "table" then
+		resetDig()
 
-		if
-			type(
-				data
-			)
-			~=
-			"table"
-		then
-
-			resetDig()
-
-			return
-
-		end
+		return
+	end
 
 	if data.Type == "Nothing" then
+		emitDirt(spot, 15, true)
 
-		emitDirt(
-			spot,
-			15,
-			true
-		)
-
-		showResult(
-			"🕳 NOTHING HERE...",
-			Color3.fromRGB(
-				200,
-				188,
-				165
-			)
-		)
-
+		showResult("🕳 NOTHING HERE...", Color3.fromRGB(200, 188, 165))
 	elseif data.Type == "Potato" then
+		local displayName = data.DisplayName or (tostring(data.PotatoType or "Basic") .. " Potato")
 
-		local displayName =
-			data.DisplayName
-			or
-			(
-				tostring(
-					data.PotatoType
-					or
-					"Basic"
-				)
-				..
-				" Potato"
-			)
-
-		emitDirt(
-			spot,
-			24,
-			true
-		)
-
-		showPickupToast(
-			displayName,
-			data.Rarity
-		)
+		emitDirt(spot, 24, true)
 
 		-- Normal Meadow potatoes appear immediately.
 		-- Only Transcendent potatoes keep the dramatic reel.
 
 		resetDig()
 
-		local isTranscendent =
-			data.IsTranscendent == true
-			or
-			displayName == "Prism Potato"
-			or
-			displayName == "Star Potato"
-			or
-			displayName == "Sunkissed Potato"
+		local isTranscendent = data.IsTranscendent == true
+			or displayName == "Prism Potato"
+			or displayName == "Star Potato"
+			or displayName == "Sunkissed Potato"
 
 		if isTranscendent then
-			showPotatoRoll(
-				displayName
-			)
+			showPotatoRoll(displayName)
 		else
 			local massText = ""
 
 			if data.SpudMass ~= nil then
-				massText =
-					" • "
-					..
-					string.format(
-						"%.2f kg",
-						tonumber(data.SpudMass) or 0
-					)
+				massText = " • " .. string.format("%.2f kg", tonumber(data.SpudMass) or 0)
 			end
 
-			showResult(
-				string.upper(
-					displayName
-				)
-				..
-				massText,
-				POTATO_COLORS[displayName]
-			)
+			showResult(string.upper(displayName) .. massText, POTATO_COLORS[displayName])
 		end
 
 		return
-
 	end
 
-		resetDig()
-
-	end
-)
+	resetDig()
+end)
 
 --==================================================
 -- HOLD LEFT CLICK
 --==================================================
 
-UserInputService.InputBegan:Connect(
-	function(
-		input,
-		gameProcessed
-	)
-
-		if gameProcessed then
-
-			return
-
-		end
-
-		if
-			input.UserInputType
-			~=
-			Enum.UserInputType.MouseButton1
-		then
-
-			return
-
-		end
-
-		if
-			UserInputService:GetFocusedTextBox()
-		then
-
-			return
-
-		end
-
-		if mouseHeld then
-
-			return
-
-		end
-
-		mouseHeld =
-			true
-
-		requestDig()
-
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then
+		return
 	end
-)
+
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+		return
+	end
+
+	if UserInputService:GetFocusedTextBox() then
+		return
+	end
+
+	if mouseHeld then
+		return
+	end
+
+	mouseHeld = true
+
+	requestDig()
+end)
 
 --==================================================
 -- RELEASE LEFT CLICK
 --==================================================
 
-UserInputService.InputEnded:Connect(
-	function(
-		input
-	)
-
-		if
-			input.UserInputType
-			~=
-			Enum.UserInputType.MouseButton1
-		then
-
-			return
-
-		end
-
-		mouseHeld =
-			false
-
-		if requestPending then
-
-			requestPending =
-				false
-
-			requestSerial +=
-				1
-
-			digPanel.Visible =
-				false
-
-			return
-
-		end
-
-		if digging then
-
-			local remaining =
-				currentEndServerTime
-				-
-				Workspace:GetServerTimeNow()
-
-			if remaining > 0.05 then
-
-				cancelDig(
-					"Released click"
-				)
-
-			end
-
-		end
-
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+		return
 	end
-)
+
+	mouseHeld = false
+
+	if requestPending then
+		requestPending = false
+
+		requestSerial += 1
+
+		digPanel.Visible = false
+
+		return
+	end
+
+	if digging then
+		local remaining = currentEndServerTime - Workspace:GetServerTimeNow()
+
+		if remaining > 0.05 then
+			cancelDig("Released click")
+		end
+	end
+end)
 
 --==================================================
 -- UPDATE
 --==================================================
 
-RunService.RenderStepped:Connect(
-	function()
+RunService.RenderStepped:Connect(function()
+	if not digging and not requestPending then
+		targetSpot = getValidTarget()
 
-		if
-			not digging
-			and
-			not requestPending
-		then
+		setIndicator(targetSpot, false)
 
-			targetSpot =
-				getValidTarget()
-
-			setIndicator(
-				targetSpot,
-				false
-			)
-
-			return
-
-		end
-
-		if requestPending then
-
-			setIndicator(
-				currentDigSpot,
-				true
-			)
-
-			return
-
-		end
-
-		if not digging then
-
-			return
-
-		end
-
-		setIndicator(
-			currentDigSpot,
-			true
-		)
-
-		--==================================================
-		-- HOE STILL EQUIPPED
-		--==================================================
-
-		if not getEquippedHoe() then
-
-			cancelDig(
-				"Hoe unequipped"
-			)
-
-			return
-
-		end
-
-		--==================================================
-		-- MOVEMENT
-		--==================================================
-
-		local root =
-			getRoot()
-
-		if
-			root
-			and
-			currentStartPosition
-			and
-			horizontalDistance(
-				root.Position,
-				currentStartPosition
-			)
-			>
-			MAX_PLAYER_RADIUS
-		then
-
-			cancelDig(
-				"Moved too far"
-			)
-
-			return
-
-		end
-
-		--==================================================
-		-- CURSOR
-		--==================================================
-
-		local mouseGround =
-			getMouseGround()
-
-		if
-			not mouseGround
-			or
-			horizontalDistance(
-				mouseGround,
-				currentDigSpot
-			)
-			>
-			LOOK_AWAY_RADIUS
-		then
-
-			cancelDig(
-				"Looked away"
-			)
-
-			return
-
-		end
-
-		--==================================================
-		-- PROGRESS
-		--==================================================
-
-		local remaining =
-			math.max(
-				0,
-				currentEndServerTime
-				-
-				Workspace:GetServerTimeNow()
-			)
-
-		local percent =
-			math.clamp(
-				1
-				-
-				(
-					remaining
-					/
-					math.max(
-						currentDigTime,
-						0.01
-					)
-				),
-				0,
-				1
-			)
-
-		progress.Size =
-			UDim2.fromScale(
-				percent,
-				1
-			)
-
-		if remaining > 0 then
-
-			digText.Text =
-				"HOLD CLICK • DIGGING "
-				..
-				string.format(
-					"%.1fs",
-					remaining
-				)
-
-		else
-
-			digText.Text =
-				"SEARCHING..."
-
-		end
-
-		--==================================================
-		-- HOE IMPACTS
-		--==================================================
-
-		for index, swingPoint in ipairs(
-			SWING_POINTS
-		) do
-
-			if
-				not swingDone[
-					index
-				]
-				and
-				percent
-				>=
-				swingPoint
-			then
-
-				swingDone[
-					index
-				] =
-					true
-
-				doHoeHit(
-					index
-				)
-
-			end
-
-		end
-
-		--==================================================
-		-- FINAL WIND-UP
-		--==================================================
-
-		if
-			not windupDone
-			and
-			percent
-			>=
-			WINDUP_POINT
-		then
-
-			windupDone =
-				true
-
-			if
-				animatedHoe
-				and
-				baseGrip
-			then
-
-				stopGripTween()
-
-				gripTween =
-					TweenService:Create(
-
-						animatedHoe,
-
-						TweenInfo.new(
-							0.15
-						),
-
-						{
-							Grip =
-								baseGrip
-								*
-								CFrame.Angles(
-									math.rad(
-										-15
-									),
-									0,
-									0
-								),
-						}
-
-					)
-
-				gripTween:Play()
-
-			end
-
-		end
-
+		return
 	end
-)
+
+	if requestPending then
+		setIndicator(currentDigSpot, true)
+
+		return
+	end
+
+	if not digging then
+		return
+	end
+
+	setIndicator(currentDigSpot, true)
+
+	--==================================================
+	-- HOE STILL EQUIPPED
+	--==================================================
+
+	if not getEquippedHoe() then
+		cancelDig("Hoe unequipped")
+
+		return
+	end
+
+	--==================================================
+	-- MOVEMENT
+	--==================================================
+
+	local root = getRoot()
+
+	if
+		root
+		and currentStartPosition
+		and horizontalDistance(root.Position, currentStartPosition) > MAX_PLAYER_RADIUS
+	then
+		cancelDig("Moved too far")
+
+		return
+	end
+
+	--==================================================
+	-- CURSOR
+	--==================================================
+
+	local mouseGround = getMouseGround()
+
+	if not mouseGround or horizontalDistance(mouseGround, currentDigSpot) > LOOK_AWAY_RADIUS then
+		cancelDig("Looked away")
+
+		return
+	end
+
+	--==================================================
+	-- PROGRESS
+	--==================================================
+
+	local remaining = math.max(0, currentEndServerTime - Workspace:GetServerTimeNow())
+
+	local percent = math.clamp(1 - (remaining / math.max(currentDigTime, 0.01)), 0, 1)
+
+	progress.Size = UDim2.fromScale(percent, 1)
+
+	if remaining > 0 then
+		digText.Text = "HOLD CLICK • DIGGING " .. string.format("%.1fs", remaining)
+	else
+		digText.Text = "SEARCHING..."
+	end
+
+	--==================================================
+	-- HOE IMPACTS
+	--==================================================
+
+	for index, swingPoint in ipairs(SWING_POINTS) do
+		if not swingDone[index] and percent >= swingPoint then
+			swingDone[index] = true
+
+			doHoeHit(index)
+		end
+	end
+
+	--==================================================
+	-- FINAL WIND-UP
+	--==================================================
+
+	if not windupDone and percent >= WINDUP_POINT then
+		windupDone = true
+
+		if animatedHoe and baseGrip then
+			stopGripTween()
+
+			gripTween = TweenService:Create(animatedHoe, TweenInfo.new(0.15), {
+				Grip = baseGrip * CFrame.Angles(math.rad(-15), 0, 0),
+			})
+
+			gripTween:Play()
+		end
+	end
+end)
 
 --==================================================
 -- RESPAWN
 --==================================================
 
-player.CharacterAdded:Connect(
-	function()
+player.CharacterAdded:Connect(function()
+	mouseHeld = false
 
-		mouseHeld =
-			false
+	requestSerial += 1
 
-		requestSerial +=
-			1
-
-		resetDig()
-
-	end
-)
+	resetDig()
+end)
 
 --==================================================
 -- READY
