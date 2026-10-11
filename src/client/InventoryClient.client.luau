@@ -892,7 +892,6 @@ function refreshAll()
 		refreshQueued = false
 		if not gui or not gui.Parent then return end
 		syncSavedInventory()
-		syncSavedInventory()
 		currentTools = scanTools()
 		assignUnslottedTools()
 		renderHotbar()
