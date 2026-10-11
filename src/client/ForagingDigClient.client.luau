@@ -245,6 +245,85 @@ local baseGrip = nil
 local gripTween = nil
 
 --==================================================
+-- CHARACTER HOE ANIMATION
+--==================================================
+
+local HOE_ANIMATION_ID = "rbxassetid://121303700659683"
+
+local hoeAnimation = Instance.new("Animation")
+hoeAnimation.AnimationId = HOE_ANIMATION_ID
+
+local hoeAnimationTrack = nil
+local hoeAnimationToken = 0
+
+local function stopHoeAnimation()
+	hoeAnimationToken += 1
+
+	if hoeAnimationTrack then
+		pcall(function()
+			hoeAnimationTrack:Stop(0.15)
+			hoeAnimationTrack:Destroy()
+		end)
+
+		hoeAnimationTrack = nil
+	end
+end
+
+local function playHoeAnimation()
+	stopHoeAnimation()
+
+	local character = getCharacter()
+	if not character then
+		return
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = humanoid:WaitForChild("Animator", 2)
+	end
+	if not animator then
+		warn("Hoe animation couldn't load: character has no Animator.")
+		return
+	end
+
+	local ok, trackOrError = pcall(function()
+		return animator:LoadAnimation(hoeAnimation)
+	end)
+
+	if not ok then
+		warn("Hoe animation failed to load:", trackOrError)
+		return
+	end
+
+	local track = trackOrError
+	track.Priority = Enum.AnimationPriority.Action
+	track.Looped = false
+	hoeAnimationTrack = track
+
+	local token = hoeAnimationToken
+	track:Play(0.05, 1, 1)
+
+	task.spawn(function()
+		track.Stopped:Wait()
+
+		-- Stopping on release/cancel invalidates this playback token.
+		if token ~= hoeAnimationToken or not digging or not mouseHeld or hoeAnimationTrack ~= track then
+			return
+		end
+
+		-- Hold the last pose while the player continues holding to dig.
+		local finalPosition = math.max(track.Length - 0.03, 0)
+		track.TimePosition = finalPosition
+		track:Play(0, 1, 0)
+	end)
+end
+
+--==================================================
 -- CHARACTER
 --==================================================
 
@@ -1380,6 +1459,7 @@ local function resetDig()
 
 	resetSwingState()
 
+	stopHoeAnimation()
 	restoreHoe()
 end
 
@@ -1488,6 +1568,8 @@ DigStarted.OnClientEvent:Connect(function(digTime, digId, digSpot, endServerTime
 	end
 
 	resetSwingState()
+
+	playHoeAnimation()
 
 	local hoe = getEquippedHoe()
 
