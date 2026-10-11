@@ -1398,6 +1398,10 @@ local function cancelDig(reason)
 		CancelDig:FireServer(reason, currentDigId)
 	end
 
+	if oldSpot then
+		emitDirt(oldSpot, 4, false)
+	end
+
 
 	showResult("CANCELLED • " .. reason, Color3.fromRGB(215, 150, 90))
 
