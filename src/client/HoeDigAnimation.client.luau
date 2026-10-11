@@ -25,25 +25,25 @@ local MAX_PLAYBACK_SPEED = 3.5
 local ANIMATION_TIME_PER_DIG_RATIO = 0.22
 
 local remotes = ReplicatedStorage:WaitForChild("ForagingRemotes")
-local digStarted = remotes:WaitForChild("DigStarted")
-local digCancelled = remotes:WaitForChild("DigCancelled")
-local digFinished = remotes:WaitForChild("DigFinished")
+local digStarted = remotes:WaitForChild("DigStarted") :: RemoteEvent
+local digCancelled = remotes:WaitForChild("DigCancelled") :: RemoteEvent
+local digFinished = remotes:WaitForChild("DigFinished") :: RemoteEvent
 
-local activeDigId = nil
-local activeDigTime = 0
-local activeEndServerTime = 0
-local nextSwingIndex = 1
-local renderConnection = nil
+local activeDigId: any = nil
+local activeDigTime: number = 0
+local activeEndServerTime: number = 0
+local nextSwingIndex: number = 1
+local renderConnection: RBXScriptConnection? = nil
 
 local animation = Instance.new("Animation")
 animation.Name = "PotatiumHoeDigAnimation"
 animation.AnimationId = ANIMATION_ID
 
-local animationTrack = nil
-local loadedHumanoid = nil
+local animationTrack: AnimationTrack? = nil
+local loadedHumanoid: Humanoid? = nil
 
-local function getEquippedHoe()
-	local character = player.Character
+local function getEquippedHoe(): Tool?
+	local character: Model? = player.Character
 	if not character then
 		return nil
 	end
@@ -73,27 +73,29 @@ local function loadAnimationForCharacter()
 	animationTrack = nil
 	loadedHumanoid = nil
 
-	local character = player.Character
+	local character: Model? = player.Character
 	if not character then
 		return
 	end
 
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid then
-		humanoid = character:WaitForChild("Humanoid", 5)
+	local humanoidInstance = character:FindFirstChildOfClass("Humanoid")
+	if not humanoidInstance then
+		humanoidInstance = character:WaitForChild("Humanoid", 5)
 	end
-	if not humanoid then
+	if not humanoidInstance or not humanoidInstance:IsA("Humanoid") then
 		return
 	end
+	local humanoid: Humanoid = humanoidInstance
 
-	local animator = humanoid:FindFirstChildOfClass("Animator")
-	if not animator then
-		animator = humanoid:WaitForChild("Animator", 5)
+	local animatorInstance = humanoid:FindFirstChildOfClass("Animator")
+	if not animatorInstance then
+		animatorInstance = humanoid:WaitForChild("Animator", 5)
 	end
-	if not animator then
+	if not animatorInstance or not animatorInstance:IsA("Animator") then
 		warn("[HoeDigAnimation] Animator not found.")
 		return
 	end
+	local animator: Animator = animatorInstance
 
 	local ok, result = pcall(function()
 		return animator:LoadAnimation(animation)
