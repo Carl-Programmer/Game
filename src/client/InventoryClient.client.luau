@@ -53,6 +53,8 @@ local itemButtons = {}
 local currentTools = {}
 local selectedCategory = "All"
 local searchText = ""
+-- Favorites are currently session-local; persistence can be added server-side later.
+local favoriteKeys = {}
 local dragState = nil
 local dragGhost = nil
 local gui, inventoryPanel, itemGrid, itemScroll, searchBox, statusLabel, hotbarFrame
@@ -74,14 +76,12 @@ end
 
 local function getToolType(tool)
 	if not tool or not tool:IsA("Tool") then return "Item" end
-	if tool:GetAttribute("PotatoInventoryTool") == true then return "Potato" end
+	if tool:GetAttribute("PotatoInventoryTool") == true or tool:GetAttribute("PotatoId") ~= nil then return "Potato" end
 	if tool:GetAttribute("FarmingToolType") == "Hoe" or tool:GetAttribute("HoeId") ~= nil then return "Hoe" end
-	if tool:GetAttribute("PotatoBitTool") == true or tool:GetAttribute("FarmingToolType") == "PotatoBits" then return "Seeds" end
-	if tool:GetAttribute("CrateTool") == true or tool:GetAttribute("CrateType") ~= nil then return "Crate" end
 	local name = string.lower(tool.Name)
 	if string.find(name, "potato", 1, true) then return "Potato" end
 	if string.find(name, "hoe", 1, true) then return "Hoe" end
-	if string.find(name, "crate", 1, true) then return "Crate" end
+	-- Seeds, crates, and all future tool types are regular inventory items.
 	return "Item"
 end
 
@@ -110,8 +110,6 @@ local function getToolIcon(tool)
 	local kind = getToolType(tool)
 	if kind == "Potato" then return "🥔" end
 	if kind == "Hoe" then return "⛏" end
-	if kind == "Seeds" then return "🌱" end
-	if kind == "Crate" then return "📦" end
 	return "◆"
 end
 
@@ -130,12 +128,8 @@ local function getToolDetails(tool)
 			return "Durability " .. tostring(durability) .. "/" .. tostring(maxDurability)
 		end
 		return "Farming tool"
-	elseif kind == "Seeds" then
-		return "Amount: " .. tostring(tool:GetAttribute("Amount") or player:GetAttribute("PotatoBits") or 0)
-	elseif kind == "Crate" then
-		return "Count: " .. tostring(tool:GetAttribute("CrateCount") or 1)
 	end
-	return tool.ToolTip ~= "" and tool.ToolTip or kind
+	return tool.ToolTip ~= "" and tool.ToolTip or "Item"
 end
 
 local function getContainers()
@@ -160,7 +154,7 @@ local function scanTools()
 		end
 	end
 	table.sort(found, function(a, b)
-		local order = {Hoe = 1, Seeds = 2, Crate = 3, Item = 4, Potato = 5}
+		local order = {Hoe = 1, Item = 2, Potato = 3}
 		local pa, pb = order[a.Type] or 6, order[b.Type] or 6
 		if pa ~= pb then return pa < pb end
 		return getToolName(a.Tool) < getToolName(b.Tool)
@@ -403,6 +397,30 @@ local function makeItemCard(entry, index)
 	detail.TextTruncate = Enum.TextTruncate.AtEnd
 	detail.Parent = card
 
+	local favoriteButton = Instance.new("TextButton")
+	favoriteButton.Name = "Favorite"
+	favoriteButton.Size = UDim2.fromOffset(28, 26)
+	favoriteButton.Position = UDim2.new(1, -32, 0, 4)
+	favoriteButton.BackgroundColor3 = COLORS.Panel2
+	favoriteButton.BackgroundTransparency = 0.08
+	favoriteButton.BorderSizePixel = 0
+	favoriteButton.Text = favoriteKeys[entry.Key] and "♥" or "♡"
+	favoriteButton.TextColor3 = favoriteKeys[entry.Key] and COLORS.Red or COLORS.Muted
+	favoriteButton.TextSize = 19
+	favoriteButton.Font = Enum.Font.GothamBold
+	favoriteButton.AutoButtonColor = true
+	favoriteButton.ZIndex = 3
+	favoriteButton.Parent = card
+	round(favoriteButton, 7)
+	favoriteButton.MouseButton1Click:Connect(function()
+		if favoriteKeys[entry.Key] then
+			favoriteKeys[entry.Key] = nil
+		else
+			favoriteKeys[entry.Key] = true
+		end
+		renderItems()
+	end)
+
 	card.MouseEnter:Connect(function() if not dragState then card.BackgroundColor3 = COLORS.SlotHover end end)
 	card.MouseLeave:Connect(function() card.BackgroundColor3 = COLORS.Slot end)
 	card.InputBegan:Connect(function(input)
@@ -426,9 +444,8 @@ local function renderItems()
 		local matchesCategory = category == "All" or
 			(category == "Potatoes" and entry.Type == "Potato") or
 			(category == "Hoes" and entry.Type == "Hoe") or
-			(category == "Seeds" and entry.Type == "Seeds") or
-			(category == "Crates" and entry.Type == "Crate") or
-			(category == "Items" and entry.Type == "Item")
+			(category == "Items" and entry.Type == "Item") or
+			(category == "Favorites" and favoriteKeys[entry.Key] == true)
 		local name = string.lower(getToolName(entry.Tool))
 		if matchesCategory and (searchText == "" or string.find(name, string.lower(searchText), 1, true)) then
 			table.insert(filtered, entry)
@@ -551,7 +568,7 @@ searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 	renderItems()
 end)
 
-local categories = {"All", "Potatoes", "Hoes", "Seeds", "Crates", "Items"}
+local categories = {"All", "Potatoes", "Hoes", "Items", "Favorites"}
 local categoryRow = Instance.new("Frame")
 categoryRow.BackgroundTransparency = 1
 categoryRow.Position = UDim2.fromOffset(16, 113)
@@ -564,7 +581,8 @@ categoryLayout.Padding = UDim.new(0, 6)
 categoryLayout.Parent = categoryRow
 
 for _, category in ipairs(categories) do
-	local button = makeTextButton(categoryRow, category, category, UDim2.fromOffset(category == "Potatoes" and 86 or 72, 30), UDim2.new(), COLORS.Panel2)
+	local categoryWidth = category == "Potatoes" and 86 or (category == "Favorites" and 88 or 72)
+	local button = makeTextButton(categoryRow, category, category, UDim2.fromOffset(categoryWidth, 30), UDim2.new(), COLORS.Panel2)
 	button.MouseButton1Click:Connect(function()
 		selectedCategory = category
 		for _, child in ipairs(categoryRow:GetChildren()) do
